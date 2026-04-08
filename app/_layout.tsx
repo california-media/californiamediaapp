@@ -1,5 +1,34 @@
-import { Stack } from "expo-router";
+// import { Stack } from "expo-router";
+
+// export default function RootLayout() {
+//   return <Stack />;
+// }
+import { Stack } from 'expo-router';
 
 export default function RootLayout() {
-  return <Stack />;
+  return (
+    <Stack>
+      <Stack.Screen 
+        name="index" 
+        options={{ 
+          headerShown: false,
+          title: 'Home'
+        }} 
+      />
+      <Stack.Screen 
+        name="leads-list" 
+        options={{ 
+          headerShown: false,
+          title: 'All Leads'
+        }} 
+      />
+      <Stack.Screen 
+        name="lead-detail" 
+        options={{ 
+          headerShown: false,
+          title: 'Lead Details'
+        }} 
+      />
+    </Stack>
+  );
 }
