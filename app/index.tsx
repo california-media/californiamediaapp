@@ -1,210 +1,10 @@
-// import { Text, View } from "react-native";
-
-// export default function Index() {
-//   return (
-//     <View
-//       style={{
-//         flex: 1,
-//         justifyContent: "center",
-//         alignItems: "center",
-//       }}
-//     >
-//       <Text>Edit app/index.tsx to edit this screen.</Text>
-//     </View>
-//   );
-// }
-// import { useEffect } from 'react';
-// import { Text, View, Button } from 'react-native';
-// import { registerForPushNotificationsAsync } from './utils/notifications';
-
-// export default function Index() {
-//   const sendTokenToServer = async (token: string) => {
-//     console.log('[App] Sending token to server:', token);
-
-//     try {
-//       const response = await fetch('http://localhost:8000/api/leads/save_push_token', {
-//         method: 'POST',
-//         headers: {
-//           'Authorization': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoicGFiYmx5X3VzZXIiLCJuYW1lIjoicGFiYmx5X3VzZXIiLCJBUElfVElNRSI6MTc1NDM4MTcwNn0.OedmvEy-R_vRiE5Nv9WrZtsTdPvorpPy795cCOUriz0',
-//           'Content-Type': 'application/json',
-//         },
-//         body: JSON.stringify({ token, platform: 'expo' }),
-//       });
-
-//       const data = await response.json();
-//       console.log('[App] Token saved response:', data);
-//     } catch (error) {
-//       console.error('[App] Error sending token:', error);
-//     }
-//   };
-
-//   useEffect(() => {
-//     console.log('[App] Registering for push notifications...');
-//     registerForPushNotificationsAsync().then((token) => {
-//       console.log('[App] registerForPushNotificationsAsync finished with token:', token);
-//       if (token) sendTokenToServer(token);
-//     });
-//   }, []);
-
-//   const sendTestNotification = async () => {
-//     console.log('[App] Sending test notification...');
-//     try {
-//       const response = await fetch('http://localhost:8000/api/leads/send_test_notification', {
-//         method: 'POST',
-//         headers: {
-//           'Authorization': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoicGFiYmx5X3VzZXIiLCJuYW1lIjoicGFiYmx5X3VzZXIiLCJBUElfVElNRSI6MTc1NDM4MTcwNn0.OedmvEy-R_vRiE5Nv9WrZtsTdPvorpPy795cCOUriz0',
-//           'Content-Type': 'application/json',
-//         },
-//         body: JSON.stringify({}),
-//       });
-
-//       const data = await response.json();
-//       console.log('[App] Test notification response:', data);
-//     } catch (error) {
-//       console.error('[App] Error sending test notification:', error);
-//     }
-//   };
-
-//   return (
-//     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-//       <Text>Edit app/index.tsx to edit this screen.</Text>
-//       <Button title="Send test notification" onPress={sendTestNotification} />
-//     </View>
-//   );
-// }
-
-
-// // app/index.tsx
-// import { useEffect, useState } from 'react';
-// import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList } from 'react-native';
-// // import { fetchAllLeads } from './utils/api'; // fetches all leads
-// import { fetchLatestLead, fetchAllLeads } from './utils/api';
-// import { Lead } from './types';
-
-// export default function HomeScreen() {
-//   const [leads, setLeads] = useState<Lead[]>([]);
-//   const [latestLead, setLatestLead] = useState<Lead | null>(null);
-
-//   useEffect(() => {
-//     const loadLeads = async () => {
-//       const allLeads = await fetchAllLeads();
-//       setLeads(allLeads);
-
-//       // // Sort leads by dateadded descending and pick the latest
-//       // const sortedLeads = allLeads.sort(
-//       //   (a, b) => new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime()
-//       // );
-
-//       const sortedLeads = allLeads.sort((a: Lead, b: Lead) => {
-//         return new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime();
-//       });
-
-//       setLatestLead(sortedLeads[0]);
-//     };
-//     loadLeads();
-//   }, []);
-
-//   if (!latestLead) {
-//     return (
-//       <View style={styles.center}>
-//         <Text>Loading leads...</Text>
-//       </View>
-//     );
-//   }
-
-//   const renderLead = ({ item }: { item: Lead }) => (
-//     <View style={styles.leadCard}>
-//       <Text style={styles.leadName}>{item.name}</Text>
-//       <Text style={styles.leadCompany}>{item.company}</Text>
-//       <Text style={styles.leadEmail}>{item.email}</Text>
-//       <Text style={styles.leadSource}>Source: {item.source_name || item.source}</Text>
-//       <Text style={styles.leadDate}>Added: {new Date(item.dateadded).toLocaleString()}</Text>
-//       <TouchableOpacity style={styles.viewButton}>
-//         <Text style={styles.viewButtonText}>View Lead →</Text>
-//       </TouchableOpacity>
-//     </View>
-//   );
-
-//   return (
-//     <ScrollView style={styles.container}>
-//       {/* Latest Lead */}
-//       <View style={styles.highlightCard}>
-//         <Text style={styles.sectionTitle}>Latest Lead</Text>
-//         <Text style={styles.latestName}>{latestLead.name}</Text>
-//         <Text style={styles.latestInfo}>Email: {latestLead.email}</Text>
-//         <Text style={styles.latestInfo}>Company: {latestLead.company}</Text>
-//         <Text style={styles.latestInfo}>Added: {new Date(latestLead.dateadded).toLocaleString()}</Text>
-//       </View>
-
-//       {/* All Leads */}
-//       <Text style={styles.sectionTitle}>All Leads</Text>
-//       {/* <FlatList
-//         data={leads}
-//         keyExtractor={(item) => item.id}
-//         renderItem={renderLead}
-//         contentContainerStyle={{ paddingBottom: 16 }}
-//       /> */}
-//    <FlatList
-//   data={leads}
-//   keyExtractor={(item) => item.id}
-//   renderItem={renderLead}
-//   ListHeaderComponent={() => (
-//     <View style={styles.highlightCard}>
-//       <Text style={styles.sectionTitle}>Latest Lead</Text>
-//       <Text style={styles.latestName}>{latestLead.name}</Text>
-//       <Text style={styles.latestInfo}>Email: {latestLead.email}</Text>
-//       <Text style={styles.latestInfo}>Company: {latestLead.company}</Text>
-//       <Text style={styles.latestInfo}>
-//         Added: {new Date(latestLead.dateadded).toLocaleString()}
-//       </Text>
-//     </View>
-//   )}
-//   contentContainerStyle={{ padding: 16 }}
-// />
-//     </ScrollView>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, backgroundColor: '#f0f4f7', padding: 16 },
-//   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-//   highlightCard: {
-//     padding: 20,
-//     backgroundColor: '#4caf50',
-//     borderRadius: 10,
-//     marginBottom: 20,
-//     elevation: 3,
-//   },
-//   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
-//   latestName: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
-//   latestInfo: { fontSize: 14, color: '#e0f2f1', marginBottom: 2 },
-//   leadCard: {
-//     padding: 16,
-//     backgroundColor: '#fff',
-//     borderRadius: 8,
-//     marginBottom: 12,
-//     elevation: 2,
-//   },
-//   leadName: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-//   leadCompany: { fontSize: 14, color: '#555' },
-//   leadEmail: { fontSize: 14, color: '#555', marginBottom: 4 },
-//   leadSource: { fontSize: 12, color: '#888', marginBottom: 4 },
-//   leadDate: { fontSize: 12, color: '#aaa' },
-//   viewButton: {
-//     marginTop: 8,
-//     padding: 10,
-//     backgroundColor: '#1b5e20',
-//     borderRadius: 6,
-//     alignItems: 'center',
-//   },
-//   viewButtonText: { color: '#fff', fontWeight: 'bold' },
-// });
 
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { fetchAllLeads } from './utils/api';
-import { Lead } from './types';
+import { fetchProjects } from './utils/projectsApi';
+import { Lead, Project } from './types';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -213,28 +13,70 @@ export default function HomeScreen() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [latestLead, setLatestLead] = useState<Lead | null>(null);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
+  const [featuredProjects, setFeaturedProjects] = useState<Project[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
-  const loadLeads = async () => {
-    const allLeads = await fetchAllLeads();
-    setLeads(allLeads);
+//   const loadData = async () => {
+//     // Load leads
+//     const allLeads = await fetchAllLeads();
+//     setLeads(allLeads);
     
-    const sortedLeads = [...allLeads].sort((a: Lead, b: Lead) => {
-      return new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime();
-    });
+//     const sortedLeads = [...allLeads].sort((a: Lead, b: Lead) => {
+//       return new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime();
+//     });
     
-    setLatestLead(sortedLeads[0]);
-    setRecentLeads(sortedLeads.slice(1, 6));
-  };
+//     setLatestLead(sortedLeads[0]);
+//     setRecentLeads(sortedLeads.slice(1, 5));
 
-  useEffect(() => {
-    loadLeads();
-  }, []);
+//     // Load featured projects
+//     // const projectsData = await fetchProjects(1, 6);
+//     // setFeaturedProjects(projectsData.data);
+
+//     try {
+//   const projectsData = await fetchProjects(1, 6);
+//   setFeaturedProjects(projectsData.data);
+// } catch (error) {
+//   console.log('Projects failed, retrying...');
+// }
+
+//   };
+
+const loadData = async () => {
+  try {
+    const [allLeads, projectsData] = await Promise.all([
+      fetchAllLeads(),
+      fetchProjects(1, 6)
+    ]);
+
+    setLeads(allLeads);
+
+    const sortedLeads = [...allLeads].sort((a, b) =>
+      new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime()
+    );
+
+    setLatestLead(sortedLeads[0]);
+    setRecentLeads(sortedLeads.slice(1, 5));
+
+    setFeaturedProjects(projectsData.data);
+
+  } catch (error) {
+    console.log('Load data error:', error);
+  }
+};
+
+useEffect(() => {
+  console.log('🔥 useEffect triggered');
+  loadData();
+}, []);
+
+  // useEffect(() => {
+  //   loadData();
+  // }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadLeads();
+    await loadData();
     setRefreshing(false);
   };
 
@@ -248,6 +90,15 @@ export default function HomeScreen() {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString();
+  };
+
+  const getStatusColor = (status: string) => {
+    switch(status?.toLowerCase()) {
+      case 'out of stock': return '#ef4444';
+      case 'under construction': return '#f59e0b';
+      case 'ready': return '#10b981';
+      default: return '#6366f1';
+    }
   };
 
   if (!latestLead) {
@@ -343,6 +194,58 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Featured Projects Section */}
+      <View style={styles.projectsSection}>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Featured Projects</Text>
+            <Text style={styles.sectionSubtitle}>Discover luxury properties</Text>
+          </View>
+          <TouchableOpacity onPress={() => router.push('/projects-list')}>
+            <Text style={styles.seeAllText}>See All</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.projectsScroll}
+          contentContainerStyle={styles.projectsScrollContent}
+        >
+          {featuredProjects.map((project) => (
+            <TouchableOpacity 
+              key={project._id} 
+              style={styles.projectCard}
+              onPress={() => router.push({ pathname: '/project-detail', params: { projectId: project.id } })}
+            >
+              <Image 
+                source={{ uri: project.s3_cover_url || project.cover_image_url?.url }}
+                style={styles.projectImage}
+              />
+              <View style={styles.projectOverlay}>
+                <View style={styles.projectDeveloper}>
+                  {project.developer_data?.logo_image?.[0] && (
+                    <Image 
+                      source={{ uri: project.developer_data.logo_image[0].url }}
+                      style={styles.developerLogo}
+                    />
+                  )}
+                  <Text style={styles.developerName}>{project.developer}</Text>
+                </View>
+                <Text style={styles.projectName}>{project.name}</Text>
+                <View style={styles.projectLocation}>
+                  <Ionicons name="location-outline" size={14} color="#fff" />
+                  <Text style={styles.projectArea}>{project.area}, {project.country}</Text>
+                </View>
+                <View style={[styles.projectStatus, { backgroundColor: getStatusColor(project.sale_status) }]}>
+                  <Text style={styles.projectStatusText}>{project.sale_status}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Recent Leads Section */}
       <View style={styles.recentSection}>
         <View style={styles.sectionHeader}>
@@ -383,9 +286,9 @@ export default function HomeScreen() {
           <Ionicons name="people" size={24} color="#94a3b8" />
           <Text style={styles.navText}>Leads</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="stats-chart" size={24} color="#94a3b8" />
-          <Text style={styles.navText}>Activity</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/projects-list')}>
+          <Ionicons name="business" size={24} color="#94a3b8" />
+          <Text style={styles.navText}>Projects</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="settings" size={24} color="#94a3b8" />
@@ -548,15 +451,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6366f1',
   },
-  recentSection: {
-    paddingHorizontal: 20,
+  projectsSection: {
     marginTop: 32,
-    marginBottom: 100,
+    marginBottom: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -564,10 +467,89 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1e293b',
   },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
   seeAllText: {
     fontSize: 14,
     color: '#6366f1',
     fontWeight: '500',
+  },
+  projectsScroll: {
+    paddingLeft: 20,
+  },
+  projectsScrollContent: {
+    paddingRight: 20,
+    gap: 16,
+  },
+  projectCard: {
+    width: 280,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  projectImage: {
+    width: '100%',
+    height: 180,
+    resizeMode: 'cover',
+  },
+  projectOverlay: {
+    padding: 12,
+  },
+  projectDeveloper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  developerLogo: {
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
+  },
+  developerName: {
+    fontSize: 12,
+    color: '#6366f1',
+    fontWeight: '500',
+  },
+  projectName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 6,
+  },
+  projectLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  projectArea: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  projectStatus: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  projectStatusText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  recentSection: {
+    paddingHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 100,
   },
   recentLeadCard: {
     flexDirection: 'row',

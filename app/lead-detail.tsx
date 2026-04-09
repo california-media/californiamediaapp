@@ -32,6 +32,16 @@ export default function LeadDetailScreen() {
     }
   };
 
+  const handleWhatsApp = () => {
+  const phoneNumber = `${lead.phonenumber}`; // include country code, no "+"
+  const message = "Hello, I would like to inquire about your services.";
+  
+  const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  
+  Linking.openURL(url).catch(err =>
+    console.error("Failed to open WhatsApp", err)
+  );
+};
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -138,7 +148,7 @@ export default function LeadDetailScreen() {
         )}
       </View>
 
-      <View style={styles.actionButtons}>
+      {/* <View style={styles.actionButtons}>
         <TouchableOpacity style={styles.actionButton} onPress={handleEmail}>
           <Ionicons name="mail" size={20} color="#6366f1" />
           <Text style={styles.actionButtonText}>Send Email</Text>
@@ -147,7 +157,24 @@ export default function LeadDetailScreen() {
           <Ionicons name="call" size={20} color="#6366f1" />
           <Text style={styles.actionButtonText}>Call Now</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
+
+<View style={styles.actionButtons}>
+  <TouchableOpacity style={styles.actionButton} onPress={handleEmail}>
+    <Ionicons name="mail" size={20} color="#6366f1" />
+    <Text style={styles.actionButtonText}>Send Email</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
+    <Ionicons name="call" size={20} color="#6366f1" />
+    <Text style={styles.actionButtonText}>Call Now</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity style={styles.actionButton} onPress={handleWhatsApp}>
+    <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+    <Text style={styles.actionButtonText}>WhatsApp</Text>
+  </TouchableOpacity>
+</View>
 
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem}>
