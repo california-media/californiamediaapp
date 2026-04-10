@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://royalblue-koala-951719.hostingersite.com/api';
+const API_BASE_URL = "http://royalblue-koala-951719.hostingersite.com/api";
 
 export interface ProjectsResponse {
   page: number;
@@ -8,42 +8,78 @@ export interface ProjectsResponse {
   data: any[];
 }
 
-// Fetch all projects with pagination
-export const fetchProjects = async (page: number = 1, limit: number = 10): Promise<ProjectsResponse> => {
+export const fetchProjects = async (
+  page: number = 1,
+  limit: number = 10,
+): Promise<ProjectsResponse> => {
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
   try {
-    const response = await fetch(`${API_BASE_URL}/projects?page=${page}&limit=${limit}`, {
-      method: 'GET',
-       headers: {
-    'Accept': 'application/json',
-  },
-    });
+    // First attempt
+    let response = await fetch(
+      `${API_BASE_URL}/projects?page=${page}&limit=${limit}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      },
+    );
+
+    // Retry once if first attempt fails
+    if (!response.ok) {
+      console.warn(
+        `First attempt to fetch projects failed (page ${page}), retrying...`,
+      );
+      await delay(1000); // optional 1s delay before retry
+      response = await fetch(
+        `${API_BASE_URL}/projects?page=${page}&limit=${limit}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch projects, status: ${response.status}`);
+    }
+
     const data = await response.json();
+    // Optional: wait 3 seconds before returning
+    await delay(3000);
+
     return data;
   } catch (error) {
-    console.error('Error fetching projects:', error);
+    console.error("Error fetching projects:", error);
     return {
-      page: 1,
-      limit: 10,
+      page,
+      limit,
       totalPages: 0,
       totalProjects: 0,
       data: [],
     };
   }
 };
-
 // Fetch single project by ID
-export const fetchProjectById = async (projectId: number): Promise<any | null> => {
+export const fetchProjectById = async (
+  projectId: number,
+): Promise<any | null> => {
   try {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
     const data = await response.json();
+    // console.log("Fetched project details:", data);
     return data;
   } catch (error) {
-    console.error('Error fetching project details:', error);
+    console.error("Error fetching project details:", error);
     return null;
   }
 };
@@ -51,16 +87,19 @@ export const fetchProjectById = async (projectId: number): Promise<any | null> =
 // Search projects
 export const searchProjects = async (query: string): Promise<any[]> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/projects?search=${query}&limit=50`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${API_BASE_URL}/projects?search=${query}&limit=50`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    });
+    );
     const data = await response.json();
     return data.data || [];
   } catch (error) {
-    console.error('Error searching projects:', error);
+    console.error("Error searching projects:", error);
     return [];
   }
 };

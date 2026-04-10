@@ -16,7 +16,6 @@
 //   [key: string]: any;          // optional: allow other dynamic fields
 // }
 
-
 export interface Lead {
   id: string;
   name: string;
@@ -40,7 +39,6 @@ export interface Lead {
 //   LeadsList: undefined;
 //   LeadDetail: { lead: Lead };
 // };
-
 
 export type RootStackParamList = {
   Home: undefined;
@@ -114,4 +112,8 @@ export interface ProjectDetails extends Project {
   video_url?: string;
   website?: string;
   brochure_url?: string;
+  min_area?: number | null;
+  max_area?: number | null;
+  area_unit?: string;
+  max_size?: number | null;
 }

@@ -1,13 +1,21 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  Dimensions,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Lead, Project } from "./types";
+import { fetchAllLeads } from "./utils/api";
+import { fetchProjects } from "./utils/projectsApi";
 
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Dimensions, Image } from 'react-native';
-import { useRouter } from 'expo-router';
-import { fetchAllLeads } from './utils/api';
-import { fetchProjects } from './utils/projectsApi';
-import { Lead, Project } from './types';
-import { Ionicons } from '@expo/vector-icons';
-
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -17,58 +25,58 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
-//   const loadData = async () => {
-//     // Load leads
-//     const allLeads = await fetchAllLeads();
-//     setLeads(allLeads);
-    
-//     const sortedLeads = [...allLeads].sort((a: Lead, b: Lead) => {
-//       return new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime();
-//     });
-    
-//     setLatestLead(sortedLeads[0]);
-//     setRecentLeads(sortedLeads.slice(1, 5));
+  //   const loadData = async () => {
+  //     // Load leads
+  //     const allLeads = await fetchAllLeads();
+  //     setLeads(allLeads);
 
-//     // Load featured projects
-//     // const projectsData = await fetchProjects(1, 6);
-//     // setFeaturedProjects(projectsData.data);
+  //     const sortedLeads = [...allLeads].sort((a: Lead, b: Lead) => {
+  //       return new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime();
+  //     });
 
-//     try {
-//   const projectsData = await fetchProjects(1, 6);
-//   setFeaturedProjects(projectsData.data);
-// } catch (error) {
-//   console.log('Projects failed, retrying...');
-// }
+  //     setLatestLead(sortedLeads[0]);
+  //     setRecentLeads(sortedLeads.slice(1, 5));
 
-//   };
+  //     // Load featured projects
+  //     // const projectsData = await fetchProjects(1, 6);
+  //     // setFeaturedProjects(projectsData.data);
 
-const loadData = async () => {
-  try {
-    const [allLeads, projectsData] = await Promise.all([
-      fetchAllLeads(),
-      fetchProjects(1, 6)
-    ]);
+  //     try {
+  //   const projectsData = await fetchProjects(1, 6);
+  //   setFeaturedProjects(projectsData.data);
+  // } catch (error) {
+  //   console.log('Projects failed, retrying...');
+  // }
 
-    setLeads(allLeads);
+  //   };
 
-    const sortedLeads = [...allLeads].sort((a, b) =>
-      new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime()
-    );
+  const loadData = async () => {
+    try {
+      const [allLeads, projectsData] = await Promise.all([
+        fetchAllLeads(),
+        fetchProjects(1, 6),
+      ]);
 
-    setLatestLead(sortedLeads[0]);
-    setRecentLeads(sortedLeads.slice(1, 5));
+      setLeads(allLeads);
 
-    setFeaturedProjects(projectsData.data);
+      const sortedLeads = [...allLeads].sort(
+        (a, b) =>
+          new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime(),
+      );
 
-  } catch (error) {
-    console.log('Load data error:', error);
-  }
-};
+      setLatestLead(sortedLeads[0]);
+      setRecentLeads(sortedLeads.slice(1, 5));
 
-useEffect(() => {
-  console.log('🔥 useEffect triggered');
-  loadData();
-}, []);
+      setFeaturedProjects(projectsData.data);
+    } catch (error) {
+      console.log("Load data error:", error);
+    }
+  };
+
+  useEffect(() => {
+    console.log("🔥 useEffect triggered");
+    loadData();
+  }, []);
 
   // useEffect(() => {
   //   loadData();
@@ -85,19 +93,23 @@ useEffect(() => {
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
+
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
     if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString();
   };
 
   const getStatusColor = (status: string) => {
-    switch(status?.toLowerCase()) {
-      case 'out of stock': return '#ef4444';
-      case 'under construction': return '#f59e0b';
-      case 'ready': return '#10b981';
-      default: return '#6366f1';
+    switch (status?.toLowerCase()) {
+      case "out of stock":
+        return "#ef4444";
+      case "under construction":
+        return "#f59e0b";
+      case "ready":
+        return "#10b981";
+      default:
+        return "#6366f1";
     }
   };
 
@@ -112,11 +124,15 @@ useEffect(() => {
   }
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#6366f1"
+        />
       }
     >
       {/* Header */}
@@ -138,13 +154,19 @@ useEffect(() => {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>
-            {leads.filter(l => new Date(l.dateadded).getTime() > Date.now() - 7*24*60*60*1000).length}
+            {
+              leads.filter(
+                (l) =>
+                  new Date(l.dateadded).getTime() >
+                  Date.now() - 7 * 24 * 60 * 60 * 1000,
+              ).length
+            }
           </Text>
           <Text style={styles.statLabel}>This Week</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>
-            {leads.filter(l => l.status === '5').length}
+            {leads.filter((l) => l.status === "5").length}
           </Text>
           <Text style={styles.statLabel}>Active</Text>
         </View>
@@ -156,14 +178,14 @@ useEffect(() => {
           <Ionicons name="flash" size={16} color="#fff" />
           <Text style={styles.latestBadgeText}>NEW LEAD</Text>
         </View>
-        
+
         <Text style={styles.latestName}>{latestLead.name}</Text>
-        
+
         <View style={styles.latestCompanyContainer}>
           <Ionicons name="business-outline" size={16} color="#a5b4fc" />
           <Text style={styles.latestCompany}>{latestLead.company}</Text>
         </View>
-        
+
         <View style={styles.infoGrid}>
           <View style={styles.infoItem}>
             <Ionicons name="mail-outline" size={18} color="#c7d2fe" />
@@ -177,17 +199,26 @@ useEffect(() => {
           )}
           <View style={styles.infoItem}>
             <Ionicons name="calendar-outline" size={18} color="#c7d2fe" />
-            <Text style={styles.infoText}>Added {formatDate(latestLead.dateadded)}</Text>
+            <Text style={styles.infoText}>
+              Added {formatDate(latestLead.dateadded)}
+            </Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="globe-outline" size={18} color="#c7d2fe" />
-            <Text style={styles.infoText}>{latestLead.source_name || 'Unknown Source'}</Text>
+            <Text style={styles.infoText}>
+              {latestLead.source_name || "Unknown Source"}
+            </Text>
           </View>
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.viewLeadButton}
-          onPress={() => router.push({ pathname: '/lead-detail', params: { lead: JSON.stringify(latestLead) } })}
+          onPress={() =>
+            router.push({
+              pathname: "/lead-detail",
+              params: { lead: JSON.stringify(latestLead) },
+            })
+          }
         >
           <Text style={styles.viewLeadButtonText}>View Full Details</Text>
           <Ionicons name="arrow-forward" size={18} color="#fff" />
@@ -199,33 +230,42 @@ useEffect(() => {
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>Featured Projects</Text>
-            <Text style={styles.sectionSubtitle}>Discover luxury properties</Text>
+            <Text style={styles.sectionSubtitle}>
+              Discover luxury properties
+            </Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/projects-list')}>
+          <TouchableOpacity onPress={() => router.push("/projects-list")}>
             <Text style={styles.seeAllText}>See All</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView 
-          horizontal 
+        {/* <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.projectsScroll}
           contentContainerStyle={styles.projectsScrollContent}
         >
           {featuredProjects.map((project) => (
-            <TouchableOpacity 
-              key={project._id} 
+            <TouchableOpacity
+              key={project._id}
               style={styles.projectCard}
-              onPress={() => router.push({ pathname: '/project-detail', params: { projectId: project.id } })}
+              onPress={() =>
+                router.push({
+                  pathname: "/project-detail",
+                  params: { projectId: project.id },
+                })
+              }
             >
-              <Image 
-                source={{ uri: project.s3_cover_url || project.cover_image_url?.url }}
+              <Image
+                source={{
+                  uri: project.s3_cover_url || project.cover_image_url?.url,
+                }}
                 style={styles.projectImage}
               />
               <View style={styles.projectOverlay}>
                 <View style={styles.projectDeveloper}>
                   {project.developer_data?.logo_image?.[0] && (
-                    <Image 
+                    <Image
                       source={{ uri: project.developer_data.logo_image[0].url }}
                       style={styles.developerLogo}
                     />
@@ -235,14 +275,101 @@ useEffect(() => {
                 <Text style={styles.projectName}>{project.name}</Text>
                 <View style={styles.projectLocation}>
                   <Ionicons name="location-outline" size={14} color="#fff" />
-                  <Text style={styles.projectArea}>{project.area}, {project.country}</Text>
+                  <Text style={styles.projectArea}>
+                    {project.area}, {project.country}
+                  </Text>
                 </View>
-                <View style={[styles.projectStatus, { backgroundColor: getStatusColor(project.sale_status) }]}>
-                  <Text style={styles.projectStatusText}>{project.sale_status}</Text>
+                <View
+                  style={[
+                    styles.projectStatus,
+                    { backgroundColor: getStatusColor(project.sale_status) },
+                  ]}
+                >
+                  <Text style={styles.projectStatusText}>
+                    {project.sale_status}
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
           ))}
+        </ScrollView> */}
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.projectsScroll}
+          contentContainerStyle={styles.projectsScrollContent}
+        >
+          {featuredProjects.map((project) => {
+            // Format the price
+            let priceText = "";
+            if (project.min_price_aed && project.max_price_aed) {
+              priceText =
+                project.min_price_aed === project.max_price_aed
+                  ? `AED ${project.min_price_aed.toLocaleString()}`
+                  : `AED ${project.min_price_aed.toLocaleString()} – ${project.max_price_aed.toLocaleString()}`;
+            } else if (project.min_price_aed) {
+              priceText = `AED ${project.min_price_aed.toLocaleString()}`;
+            } else if (project.max_price_aed) {
+              priceText = `AED ${project.max_price_aed.toLocaleString()}`;
+            }
+
+            return (
+              <TouchableOpacity
+                key={project._id}
+                style={styles.projectCard}
+                onPress={() =>
+                  router.push({
+                    pathname: "/project-detail",
+                    params: { projectId: project.id },
+                  })
+                }
+              >
+                <Image
+                  source={{
+                    uri: project.s3_cover_url || project.cover_image_url?.url,
+                  }}
+                  style={styles.projectImage}
+                />
+                <View style={styles.projectOverlay}>
+                  <View style={styles.projectDeveloper}>
+                    {project.developer_data?.logo_image?.[0] && (
+                      <Image
+                        source={{
+                          uri: project.developer_data.logo_image[0].url,
+                        }}
+                        style={styles.developerLogo}
+                      />
+                    )}
+                    <Text style={styles.developerName}>
+                      {project.developer}
+                    </Text>
+                  </View>
+                  <Text style={styles.projectName}>{project.name}</Text>
+                  <View style={styles.projectLocation}>
+                    <Ionicons name="location-outline" size={14} color="#fff" />
+                    <Text style={styles.projectArea}>
+                      {project.area}, {project.country}
+                    </Text>
+                  </View>
+                  {/* Display Price */}
+                  {priceText !== "" && (
+                    <Text style={styles.projectPrice}>{priceText}</Text>
+                  )}
+                  <View
+                    style={[
+                      styles.projectStatus,
+                      { backgroundColor: getStatusColor(project.sale_status) },
+                    ]}
+                  >
+                    <Text style={styles.projectStatusText}>
+                      {project.sale_status}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -250,16 +377,21 @@ useEffect(() => {
       <View style={styles.recentSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Leads</Text>
-          <TouchableOpacity onPress={() => router.push('/leads-list')}>
+          <TouchableOpacity onPress={() => router.push("/leads-list")}>
             <Text style={styles.seeAllText}>See All</Text>
           </TouchableOpacity>
         </View>
 
         {recentLeads.map((lead, index) => (
-          <TouchableOpacity 
-            key={lead.id} 
+          <TouchableOpacity
+            key={lead.id}
             style={styles.recentLeadCard}
-            onPress={() => router.push({ pathname: '/lead-detail', params: { lead: JSON.stringify(lead) } })}
+            onPress={() =>
+              router.push({
+                pathname: "/lead-detail",
+                params: { lead: JSON.stringify(lead) },
+              })
+            }
           >
             <View style={styles.recentLeadAvatar}>
               <Text style={styles.avatarText}>{lead.name.charAt(0)}</Text>
@@ -269,7 +401,9 @@ useEffect(() => {
               <Text style={styles.recentLeadCompany}>{lead.company}</Text>
             </View>
             <View style={styles.recentLeadMeta}>
-              <Text style={styles.recentLeadTime}>{formatDate(lead.dateadded)}</Text>
+              <Text style={styles.recentLeadTime}>
+                {formatDate(lead.dateadded)}
+              </Text>
               <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
             </View>
           </TouchableOpacity>
@@ -282,11 +416,17 @@ useEffect(() => {
           <Ionicons name="home" size={24} color="#6366f1" />
           <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/leads-list')}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/leads-list")}
+        >
           <Ionicons name="people" size={24} color="#94a3b8" />
           <Text style={styles.navText}>Leads</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/projects-list')}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/projects-list")}
+        >
           <Ionicons name="business" size={24} color="#94a3b8" />
           <Text style={styles.navText}>Projects</Text>
         </TouchableOpacity>
@@ -300,34 +440,40 @@ useEffect(() => {
 }
 
 const styles = StyleSheet.create({
+  projectPrice: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
+    marginTop: 4,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: "#f8fafc",
   },
   center: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
   },
   loaderContainer: {
     padding: 20,
   },
   loadingText: {
     fontSize: 16,
-    color: '#64748b',
+    color: "#64748b",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 24,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -335,35 +481,35 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#1e293b',
+    fontWeight: "700",
+    color: "#1e293b",
   },
   subGreeting: {
     fontSize: 14,
-    color: '#64748b',
+    color: "#64748b",
     marginTop: 4,
   },
   profileButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f1f5f9",
+    justifyContent: "center",
+    alignItems: "center",
   },
   statsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 20,
     marginTop: -20,
     gap: 12,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -371,32 +517,32 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#6366f1',
+    fontWeight: "700",
+    color: "#6366f1",
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#64748b',
-    fontWeight: '500',
+    color: "#64748b",
+    fontWeight: "500",
   },
   latestCard: {
-    backgroundColor: '#6366f1',
+    backgroundColor: "#6366f1",
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#6366f1',
+    shadowColor: "#6366f1",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 8,
   },
   latestBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignSelf: "flex-start",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -404,78 +550,78 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   latestBadgeText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   latestName: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "700",
+    color: "#fff",
     marginBottom: 8,
   },
   latestCompanyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 20,
   },
   latestCompany: {
     fontSize: 16,
-    color: '#a5b4fc',
+    color: "#a5b4fc",
   },
   infoGrid: {
     gap: 12,
     marginBottom: 24,
   },
   infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   infoText: {
     fontSize: 14,
-    color: '#c7d2fe',
+    color: "#c7d2fe",
   },
   viewLeadButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   viewLeadButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#6366f1',
+    fontWeight: "600",
+    color: "#6366f1",
   },
   projectsSection: {
     marginTop: 32,
     marginBottom: 8,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#1e293b',
+    fontWeight: "700",
+    color: "#1e293b",
   },
   sectionSubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: "#64748b",
     marginTop: 2,
   },
   seeAllText: {
     fontSize: 14,
-    color: '#6366f1',
-    fontWeight: '500',
+    color: "#6366f1",
+    fontWeight: "500",
   },
   projectsScroll: {
     paddingLeft: 20,
@@ -487,64 +633,64 @@ const styles = StyleSheet.create({
   projectCard: {
     width: 280,
     borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   projectImage: {
-    width: '100%',
+    width: "100%",
     height: 180,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   projectOverlay: {
     padding: 12,
   },
   projectDeveloper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 8,
   },
   developerLogo: {
     width: 20,
     height: 20,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   developerName: {
     fontSize: 12,
-    color: '#6366f1',
-    fontWeight: '500',
+    color: "#6366f1",
+    fontWeight: "500",
   },
   projectName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontWeight: "600",
+    color: "#1e293b",
     marginBottom: 6,
   },
   projectLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginBottom: 8,
   },
   projectArea: {
     fontSize: 12,
-    color: '#64748b',
+    color: "#64748b",
   },
   projectStatus: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   projectStatusText: {
     fontSize: 10,
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
   },
   recentSection: {
     paddingHorizontal: 20,
@@ -552,13 +698,13 @@ const styles = StyleSheet.create({
     marginBottom: 100,
   },
   recentLeadCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -568,50 +714,50 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#e0e7ff',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#e0e7ff",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   avatarText: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#6366f1',
+    fontWeight: "600",
+    color: "#6366f1",
   },
   recentLeadInfo: {
     flex: 1,
   },
   recentLeadName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontWeight: "600",
+    color: "#1e293b",
     marginBottom: 4,
   },
   recentLeadCompany: {
     fontSize: 13,
-    color: '#64748b',
+    color: "#64748b",
   },
   recentLeadMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   recentLeadTime: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: "#94a3b8",
   },
   bottomNav: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    backgroundColor: "#fff",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -619,15 +765,15 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 4,
   },
   navText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: "#94a3b8",
   },
   navTextActive: {
-    color: '#6366f1',
-    fontWeight: '500',
+    color: "#6366f1",
+    fontWeight: "500",
   },
 });
