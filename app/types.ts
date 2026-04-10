@@ -117,3 +117,139 @@ export interface ProjectDetails extends Project {
   area_unit?: string;
   max_size?: number | null;
 }
+
+// types.ts
+export interface Project {
+  _id: string;
+  name: string;
+  developer: string;
+  area: string;
+  country: string;
+  sale_status: string;
+  s3_cover_url?: string;
+}
+
+export interface Property {
+  id: string;
+  property_type: string | null;
+  category: string;
+  listing_type: string;
+  purpose: string;
+  developer: string;
+  owner_name: string;
+  project_name: string;
+  property_reference: string;
+  unit_type: string;
+  furnishing: string;
+  parking_availability: string;
+  bedrooms: string;
+  bathrooms: string;
+  price: string;
+  area: string;
+  location: string | null;
+  bayut_location_name: string | null;
+  property_status: string;
+  assigned_agent: string;
+  thumbnail: string;
+  dateadded: string;
+  last_updated: string;
+  agent_name: string;
+  landlord_name: string;
+}
+
+export interface FilterOptions {
+  property_type: string;
+  category: string;
+  listing_type: string;
+  purpose: string;
+  property_status: string;
+  unit_type: string;
+  furnishing: string;
+  bedrooms: string;
+  bathrooms: string;
+  price_min: string;
+  price_max: string;
+  area_min: string;
+  area_max: string;
+  sort_by: string;
+  sort_order: string;
+}
+
+export const defaultFilters: FilterOptions = {
+  property_type: "",
+  category: "",
+  listing_type: "",
+  purpose: "",
+  property_status: "",
+  unit_type: "",
+  furnishing: "",
+  bedrooms: "",
+  bathrooms: "",
+  price_min: "",
+  price_max: "",
+  area_min: "",
+  area_max: "",
+  sort_by: "dateadded",
+  sort_order: "DESC",
+};
+
+// types.ts (add this interface)
+export interface PropertyDetails {
+  id: string;
+  property_type: string | null;
+  category: string;
+  listing_type: string;
+  purpose: string;
+  developer: string;
+  owner_name: string;
+  email?: string;
+  owner_phone_1?: string;
+  owner_phone_2?: string;
+  project_name: string;
+  property_reference: string;
+  unit_type: string;
+  furnishing: string;
+  parking_availability: string;
+  trakheesi_permit_number: string | null;
+  rent_duration: string;
+  permit_type: string | null;
+  permit_number: string;
+  license_number: string;
+  propertyfinder_listing_id: string | null;
+  bayut_listing_id: string | null;
+  property_access: string | null;
+  bayut_property_access: string | null;
+  bathrooms: string;
+  bedrooms: string;
+  price: string;
+  area: string;
+  location: string | null;
+  bayut_location: string | null;
+  bayut_location_name: string | null;
+  latitude: string;
+  longitude: string;
+  payment_plans: string;
+  amenities: string | null;
+  handover_date: string | null;
+  property_status: string;
+  assigned_agent: string;
+  thumbnail: string;
+  architecture_images: string;
+  lobby_images: string | null;
+  interior_images: string | null;
+  master_plan_image: string | null;
+  description: string;
+  youtube_video_link: string;
+  near_by_locations: string;
+  remarks: string;
+  dateadded: string;
+  addedfrom: string;
+  last_updated: string;
+  bayut_property_type: string | null;
+  bayut_amenities: string | null;
+  reelly_amenities: string;
+  reelly_unit_type: string;
+  agent_name: string;
+  landlord_name: string;
+  attachments: any[];
+}

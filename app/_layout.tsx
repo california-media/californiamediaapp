@@ -1,43 +1,49 @@
-
-import { Stack } from 'expo-router';
+import { Stack } from "expo-router";
 
 export default function RootLayout() {
   return (
     <Stack>
-      <Stack.Screen 
-        name="index" 
-        options={{ 
+      <Stack.Screen
+        name="index"
+        options={{
           headerShown: false,
-          title: 'Home'
-        }} 
+          title: "Home",
+        }}
       />
-      <Stack.Screen 
-        name="leads-list" 
-        options={{ 
+      <Stack.Screen
+        name="leads-list"
+        options={{
           headerShown: false,
-          title: 'All Leads'
-        }} 
+          title: "All Leads",
+        }}
       />
-      <Stack.Screen 
-        name="lead-detail" 
-        options={{ 
+      <Stack.Screen
+        name="lead-detail"
+        options={{
           headerShown: false,
-          title: 'Lead Details'
-        }} 
+          title: "Lead Details",
+        }}
       />
-      <Stack.Screen 
-        name="projects-list" 
-        options={{ 
+      <Stack.Screen
+        name="properties-list"
+        options={{
           headerShown: false,
-          title: 'Real Estate Projects'
-        }} 
+          title: "Properties",
+        }}
       />
-      <Stack.Screen 
-        name="project-detail" 
-        options={{ 
+      <Stack.Screen
+        name="projects-list"
+        options={{
           headerShown: false,
-          title: 'Project Details'
-        }} 
+          title: "Real Estate Projects",
+        }}
+      />
+      <Stack.Screen
+        name="project-detail"
+        options={{
+          headerShown: false,
+          title: "Project Details",
+        }}
       />
     </Stack>
   );
@@ -47,26 +53,26 @@ export default function RootLayout() {
 // export default function RootLayout() {
 //   return (
 //     <Stack>
-//       <Stack.Screen 
-//         name="index" 
-//         options={{ 
+//       <Stack.Screen
+//         name="index"
+//         options={{
 //           headerShown: false,
 //           title: 'Home'
-//         }} 
+//         }}
 //       />
-//       <Stack.Screen 
-//         name="leads-list" 
-//         options={{ 
+//       <Stack.Screen
+//         name="leads-list"
+//         options={{
 //           headerShown: false,
 //           title: 'All Leads'
-//         }} 
+//         }}
 //       />
-//       <Stack.Screen 
-//         name="lead-detail" 
-//         options={{ 
+//       <Stack.Screen
+//         name="lead-detail"
+//         options={{
 //           headerShown: false,
 //           title: 'Lead Details'
-//         }} 
+//         }}
 //       />
 //     </Stack>
 //   );
