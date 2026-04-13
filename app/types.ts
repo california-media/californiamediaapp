@@ -1,44 +1,88 @@
-// // app/types.ts
+export interface Lead {
+  id: string;
+  hash: string;
+  name: string;
+  title: string | null;
+  company: string | null;
+  description: string;
+  country: string;
+  area: string;
+  zip: string;
+  city: string;
+  observer: string;
+  bedroom: string;
+  unit_number: string;
+  developer_id: string;
+  project_id: string;
+  custom_fields: any;
+  state: string;
+  address: string;
+  assigned: string;
+  dateadded: string;
+  from_form_id: string;
+  status: string;
+  source: string;
+  lastcontact: string;
+  dateassigned: string;
+  last_status_change: any;
+  addedfrom: string;
+  email: string;
+  website: string | null;
+  leadorder: string;
+  phonenumber: string;
+  unit_type: string;
+  date_converted: any;
+  lost: string;
+  junk: string;
+  last_lead_status: string;
+  is_imported_from_email_integration: string;
+  email_integration_uid: any;
+  is_public: string;
+  default_language: any;
+  client_id: string;
+  lead_value: string;
+  lead_access: string;
+  lead_call: string;
+  lead_feedback: string;
+  campaign_id: string;
+  campaign_assigned: string;
+  last_calldate: any;
+  last_callstatus: any;
+  is_approved: string;
+  no_answer_count: string;
+  lead_points: string;
+  from_ma_form_id: string;
+  ma_point: string;
+  status_name: string;
+  source_name: string;
+  assigned_name: string;
+}
+
+export interface LeadsResponse {
+  data: Lead[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 // export interface Lead {
-//   id: string;                  // API returns string IDs
+//   id: string;
 //   name: string;
 //   email: string;
-//   source: string;              // original source ID
-//   source_name?: string;        // human-readable source
+//   source: string;
+//   source_name?: string;
 //   company: string;
-//   intent?: string;             // may be missing
-//   dateadded: string;           // ISO datetime string
+//   intent?: string;
+//   dateadded: string;
 //   lastcontact?: string;
 //   phonenumber?: string;
 //   status?: string;
 //   lead_value?: string;
 //   description?: string;
-//   [key: string]: any;          // optional: allow other dynamic fields
+//   title?: string;
+//   [key: string]: any;
 // }
-
-export interface Lead {
-  id: string;
-  name: string;
-  email: string;
-  source: string;
-  source_name?: string;
-  company: string;
-  intent?: string;
-  dateadded: string;
-  lastcontact?: string;
-  phonenumber?: string;
-  status?: string;
-  lead_value?: string;
-  description?: string;
-  title?: string;
-  [key: string]: any;
-}
-
-// export type RootStackParamList = {
-//   Home: undefined;
-//   LeadsList: undefined;
-//   LeadDetail: { lead: Lead };
-// };
 
 export type RootStackParamList = {
   Home: undefined;

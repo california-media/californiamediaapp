@@ -42,38 +42,9 @@ export default function RootLayout() {
         name="project-detail"
         options={{
           headerShown: false,
-          title: "Project Details",
+          // title: "Project Details",
         }}
       />
     </Stack>
   );
 }
-// import { Stack } from 'expo-router';
-
-// export default function RootLayout() {
-//   return (
-//     <Stack>
-//       <Stack.Screen
-//         name="index"
-//         options={{
-//           headerShown: false,
-//           title: 'Home'
-//         }}
-//       />
-//       <Stack.Screen
-//         name="leads-list"
-//         options={{
-//           headerShown: false,
-//           title: 'All Leads'
-//         }}
-//       />
-//       <Stack.Screen
-//         name="lead-detail"
-//         options={{
-//           headerShown: false,
-//           title: 'Lead Details'
-//         }}
-//       />
-//     </Stack>
-//   );
-// }

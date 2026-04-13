@@ -1,16 +1,16 @@
-// app/properties-list.tsx (Updated version)
+// app/properties-list.tsx - Final version with proper spacing
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import FilterModal from "./components/FilterModal";
 import PropertyCard from "./components/PropertyCard";
@@ -59,7 +59,6 @@ export default function PropertiesListScreen() {
         10,
       );
 
-      // Update total results count
       if (response.total !== undefined) {
         setTotalResults(response.total);
       }
@@ -74,16 +73,9 @@ export default function PropertiesListScreen() {
         setFilteredProperties((prev) => [...prev, ...newProperties]);
       }
 
-      // Check if there are more results
       const hasMoreResults = newProperties.length === 10;
       setHasMore(hasMoreResults);
       setPage(pageNum);
-
-      // Show message if no results found
-      if (newProperties.length === 0 && pageNum === 1) {
-        // Don't show error, just empty state
-        console.log("No properties found for current filters");
-      }
     } catch (error) {
       console.error("Error loading properties:", error);
       setError("Failed to load properties. Please try again.");
@@ -222,35 +214,47 @@ export default function PropertiesListScreen() {
     </View>
   );
 
-  if (loading && page === 1) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={styles.loadingText}>
-          Loading {activeTab} properties...
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+  // Header component that scrolls with the list
+  const ListHeader = () => (
+    <>
+      {/* Search and Filter Row with Back Button */}
+      <View style={styles.searchWrapper}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color="#1e293b" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Properties</Text>
+
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#94a3b8" />
+          <TextInput
+            style={styles.searchInput}
+            // placeholder={`Search ${activeTab} properties...`}
+            placeholder={
+              filteredProperties.length > 0
+                ? `Search ${filteredProperties.length} of ${totalResults || filteredProperties.length} properties`
+                : `No ${activeTab} properties found`
+            }
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery !== "" && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
         <TouchableOpacity
+          style={styles.filterButton}
           onPress={() => {
             setTempFilters(filters);
             setShowFilters(true);
           }}
-          style={styles.filterButton}
         >
-          <Ionicons name="options-outline" size={24} color="#6366f1" />
+          <Ionicons name="options-outline" size={22} color="#6366f1" />
           {hasActiveFilters() && (
             <View style={styles.filterBadge}>
               <Text style={styles.filterBadgeText}>
@@ -298,84 +302,69 @@ export default function PropertiesListScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+    </>
+  );
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons
-          name="search"
-          size={20}
-          color="#94a3b8"
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={`Search ${activeTab} properties...`}
-          placeholderTextColor="#94a3b8"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery !== "" && (
-          <TouchableOpacity onPress={() => setSearchQuery("")}>
-            <Ionicons name="close-circle" size={20} color="#94a3b8" />
-          </TouchableOpacity>
-        )}
+  if (loading && page === 1) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#6366f1" />
+        <Text style={styles.loadingText}>
+          Loading {activeTab} properties...
+        </Text>
       </View>
+    );
+  }
 
-      {/* Stats Bar */}
-      {(filteredProperties.length > 0 || hasActiveFilters()) && (
-        <View style={styles.statsBar}>
-          <Text style={styles.statsText}>
-            {filteredProperties.length > 0
-              ? `Showing ${filteredProperties.length} of ${totalResults || filteredProperties.length} ${activeTab} Properties`
-              : `No ${activeTab} properties found`}
-          </Text>
-          {hasActiveFilters() && filteredProperties.length === 0 && (
-            <TouchableOpacity onPress={resetFilters}>
-              <Text style={styles.clearFiltersText}>Clear Filters</Text>
-            </TouchableOpacity>
-          )}
-          {hasActiveFilters() && filteredProperties.length > 0 && (
-            <TouchableOpacity onPress={resetFilters}>
-              <Text style={styles.clearFiltersText}>Clear All Filters</Text>
-            </TouchableOpacity>
-          )}
+  return (
+    <View style={styles.container}>
+      {/* Error State */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color="#ef4444" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
         </View>
       )}
 
-      {error ? (
-        <ErrorStateComponent />
-      ) : (
-        <FlatList
-          data={filteredProperties}
-          keyExtractor={(item) => item.id}
-          renderItem={renderPropertyCard}
-          contentContainerStyle={[
-            styles.listContainer,
-            filteredProperties.length === 0 && styles.emptyListContainer,
-          ]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#6366f1"
-            />
-          }
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.loaderMore}>
-                <ActivityIndicator size="small" color="#6366f1" />
-                <Text style={styles.loadingMoreText}>
-                  Loading more properties...
-                </Text>
-              </View>
-            ) : null
-          }
-          ListEmptyComponent={!loading ? <EmptyStateComponent /> : null}
-        />
-      )}
+      {/* Properties List with integrated header */}
+      <FlatList
+        data={filteredProperties}
+        keyExtractor={(item) => item.id}
+        renderItem={renderPropertyCard}
+        ListHeaderComponent={<ListHeader />}
+        contentContainerStyle={[
+          styles.listContainer,
+          filteredProperties.length === 0 && styles.emptyListContainer,
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6366f1"
+          />
+        }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loaderMore}>
+              <ActivityIndicator size="small" color="#6366f1" />
+              <Text style={styles.loadingMoreText}>
+                Loading more properties...
+              </Text>
+            </View>
+          ) : null
+        }
+        ListEmptyComponent={
+          !loading && !error && filteredProperties.length === 0 ? (
+            <EmptyStateComponent />
+          ) : null
+        }
+      />
 
       <FilterModal
         visible={showFilters}
@@ -391,6 +380,7 @@ export default function PropertiesListScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    marginTop: 30,
     flex: 1,
     backgroundColor: "#f8fafc",
   },
@@ -405,39 +395,57 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#64748b",
   },
-  header: {
+  searchWrapper: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 12,
+    marginBottom: 16,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+  searchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
     color: "#1e293b",
   },
   filterButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
     position: "relative",
   },
   filterBadge: {
     position: "absolute",
-    top: 5,
-    right: 5,
-    backgroundColor: "#ef4444",
+    top: -4,
+    right: -4,
+    backgroundColor: "#6366f1",
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -448,72 +456,62 @@ const styles = StyleSheet.create({
   filterBadgeText: {
     color: "#fff",
     fontSize: 10,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
   tabContainer: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 16,
     gap: 12,
+    marginBottom: 16,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: "center",
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: "#f1f5f9",
   },
   activeTab: {
     backgroundColor: "#6366f1",
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#64748b",
   },
   activeTabText: {
     color: "#fff",
   },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    marginTop: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#1e293b",
-  },
-  statsBar: {
+  statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 8,
   },
   statsText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#64748b",
     fontWeight: "500",
   },
-  clearFiltersText: {
-    fontSize: 14,
+  clearFiltersChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#e0e7ff",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  clearFiltersChipText: {
+    fontSize: 12,
     color: "#6366f1",
     fontWeight: "500",
   },
   listContainer: {
-    paddingHorizontal: 20,
     paddingBottom: 20,
+    paddingHorizontal: 16,
   },
   emptyListContainer: {
     flex: 1,
@@ -578,5 +576,18 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 12,
+    marginBottom: 20,
   },
 });
