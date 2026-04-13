@@ -214,8 +214,8 @@ export default function PropertiesListScreen() {
     </View>
   );
 
-  // Header component that scrolls with the list
-  const ListHeader = () => (
+  // Header rendered as plain JSX (not a sub-component) to prevent TextInput focus loss on re-render
+  const header = (
     <>
       {/* Search and Filter Row with Back Button */}
       <View style={styles.searchWrapper}>
@@ -330,11 +330,12 @@ export default function PropertiesListScreen() {
       )}
 
       {/* Properties List with integrated header */}
+      {header}
       <FlatList
         data={filteredProperties}
         keyExtractor={(item) => item.id}
         renderItem={renderPropertyCard}
-        ListHeaderComponent={<ListHeader />}
+        style={styles.flatList}
         contentContainerStyle={[
           styles.listContainer,
           filteredProperties.length === 0 && styles.emptyListContainer,
@@ -513,8 +514,11 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     paddingHorizontal: 16,
   },
-  emptyListContainer: {
+  flatList: {
     flex: 1,
+  },
+  emptyListContainer: {
+    flexGrow: 1,
     justifyContent: "center",
   },
   loaderMore: {

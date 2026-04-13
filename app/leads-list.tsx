@@ -310,7 +310,7 @@ export default function LeadsListScreen() {
               style={styles.whatsappButton}
               onPress={() => handleWhatsApp(item.phonenumber)}
             >
-              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+              <Ionicons name="logo-whatsapp" size={18} color="#fff" />
               <Text style={styles.whatsappButtonText}>WhatsApp</Text>
             </TouchableOpacity>
           </>
@@ -323,7 +323,7 @@ export default function LeadsListScreen() {
     </TouchableOpacity>
   );
 
-  const FilterModalComponent = () => (
+  const filterModal = (
     <Modal
       visible={showFilterModal}
       animationType="slide"
@@ -541,8 +541,7 @@ export default function LeadsListScreen() {
     ).length;
   };
 
-  // Header component that scrolls with the list
-  const ListHeader = () => (
+  const header = (
     <>
       {/* Animated Success Message */}
       <Animated.View style={[styles.successMessage, { opacity: fadeAnim }]}>
@@ -610,7 +609,7 @@ export default function LeadsListScreen() {
     </>
   );
 
-  if (loading && page === 1) {
+  if (loading && leads.length === 0) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#6366f1" />
@@ -632,12 +631,13 @@ export default function LeadsListScreen() {
         </View>
       )}
 
-      {/* Leads List with integrated header */}
+      {header}
+      {/* Leads List */}
       <FlatList
         data={leads}
         keyExtractor={(item) => item.id}
         renderItem={renderLeadCard}
-        ListHeaderComponent={<ListHeader />}
+        style={styles.flatList}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
@@ -672,7 +672,7 @@ export default function LeadsListScreen() {
         }
       />
 
-      <FilterModalComponent />
+      {filterModal}
     </View>
   );
 }
@@ -811,6 +811,9 @@ const styles = StyleSheet.create({
     color: "#6366f1",
     fontWeight: "500",
   },
+  flatList: {
+    flex: 1,
+  },
   listContainer: {
     paddingBottom: 20,
   },
@@ -914,7 +917,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: "#10b981",
+    backgroundColor: "#2563eb",
   },
   whatsappButton: {
     flex: 1,
@@ -924,9 +927,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#25D366",
-    backgroundColor: "#fff",
+    backgroundColor: "#25D366",
   },
   buttonText: {
     fontSize: 14,
@@ -936,7 +937,7 @@ const styles = StyleSheet.create({
   whatsappButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#25D366",
+    color: "#fff",
   },
   sourceBadge: {
     flexDirection: "row",
@@ -1468,7 +1469,7 @@ const styles = StyleSheet.create({
 //               style={styles.whatsappButton}
 //               onPress={() => handleWhatsApp(item.phonenumber)}
 //             >
-//               <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+//               <Ionicons name="logo-whatsapp" size={18} color="#fff" />
 //               <Text style={styles.whatsappButtonText}>WhatsApp</Text>
 //             </TouchableOpacity>
 //           </>
