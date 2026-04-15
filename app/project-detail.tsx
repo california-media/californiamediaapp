@@ -15,8 +15,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as Sharing from "expo-sharing";
 import { ProjectDetails } from "./types";
-import { fetchProjectById } from "./utils/projectsApi";
+import { downloadBrochure, fetchProjectById } from "./utils/projectsApi";
 
 const { width, height } = Dimensions.get("window");
 
@@ -30,6 +31,7 @@ export default function ProjectDetailScreen() {
   const [mapReady, setMapReady] = useState(false);
   const [showFullOverview, setShowFullOverview] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // Dynamically import MapView to avoid build errors if not installed
   let MapView: any = null;
@@ -99,6 +101,19 @@ export default function ProjectDetailScreen() {
 
   const openUrl = (url: string) => {
     if (url) Linking.openURL(url);
+  };
+
+  const onDownloadBrochure = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const filePath = await downloadBrochure(projectId);
+      await Sharing.shareAsync(filePath, { mimeType: "application/pdf" });
+    } catch (error) {
+      console.error("Error downloading brochure:", error);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const onShare = async () => {
@@ -563,15 +578,16 @@ export default function ProjectDetailScreen() {
           )}
           <TouchableOpacity
             style={styles.actionButtonSecondary}
-            // onPress={() => {
-            //   const url = `https://wa.me/?text=${encodeURIComponent(`${project.name}\n${formatPrice(project.min_price_aed)}`)}`;
-            //   openUrl(url);
-            // }}
+            onPress={onDownloadBrochure}
+            disabled={downloading}
           >
+            {downloading ? (
+              <ActivityIndicator size="small" color="#3919da" />
+            ) : null}
             <Text
               style={[styles.actionButtonSecondaryText, { color: "#3919da" }]}
             >
-              Download
+              {downloading ? "Downloading..." : "Download"}
             </Text>
           </TouchableOpacity>
         </View>

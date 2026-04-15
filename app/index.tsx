@@ -31,35 +31,43 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const loadData = async () => {
-    try {
-      // FIX: fetchAllLeads now returns an object with data property
-      const leadsResponse = await fetchAllLeads({ limit: 100 });
-      const allLeads = leadsResponse.data || []; // Extract the data array
+    // Run all three in parallel — a failure in one won't block the others
+    const [leadsResult, projectsResult, propertiesResult] = await Promise.allSettled([
+      fetchAllLeads({ limit: 100 }),
+      fetchProjects(1, 6),
+      fetchProperties("Off-plan", defaultFilters, 1, 6),
+    ]);
 
-      const [projectsData, secondaryData] = await Promise.all([
-        fetchProjects(1, 6),
-        fetchProperties("Off-plan", defaultFilters, 1, 6),
-      ]);
-
-      setLeads(allLeads);
-
-      // Sort leads by date
+    // Leads
+    if (leadsResult.status === "fulfilled") {
+      const allLeads = leadsResult.value.data || [];
       const sortedLeads = [...allLeads].sort(
         (a, b) =>
           new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime(),
       );
-
+      setLeads(allLeads);
       setLatestLead(sortedLeads[0] || null);
-      setRecentLeads(sortedLeads.slice(1, 5) || []);
-      setFeaturedProjects(projectsData.data || []);
-      setSecondaryProperties(secondaryData.data || []);
-    } catch (error) {
-      console.log("Load data error:", error);
-      // Set empty states on error
+      setRecentLeads(sortedLeads.slice(1, 5));
+    } else {
+      console.log("Leads fetch failed:", leadsResult.reason);
       setLeads([]);
       setLatestLead(null);
       setRecentLeads([]);
+    }
+
+    // Off-plan projects
+    if (projectsResult.status === "fulfilled") {
+      setFeaturedProjects(projectsResult.value.data || []);
+    } else {
+      console.log("Projects fetch failed:", projectsResult.reason);
       setFeaturedProjects([]);
+    }
+
+    // Secondary properties
+    if (propertiesResult.status === "fulfilled") {
+      setSecondaryProperties(propertiesResult.value.data || []);
+    } else {
+      console.log("Properties fetch failed:", propertiesResult.reason);
       setSecondaryProperties([]);
     }
   };
