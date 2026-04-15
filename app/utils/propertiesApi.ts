@@ -332,67 +332,6 @@ export const fetchProperties = async (
   }
 };
 
-// For Off-Plan projects (original API)
-export const fetchProjects = async (
-  page: number = 1,
-  limit: number = 10,
-): Promise<any> => {
-  const delay = (ms: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms));
-  const PROJECT_API_BASE =
-    "http://royalblue-koala-951719.hostingersite.com/api";
-
-  try {
-    let response = await fetch(
-      `${PROJECT_API_BASE}/projects?page=${page}&limit=${limit}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-      },
-    );
-
-    if (!response.ok) {
-      console.warn(
-        `First attempt failed with status ${response.status}, retrying...`,
-      );
-      await delay(1000);
-      response = await fetch(
-        `${PROJECT_API_BASE}/projects?page=${page}&limit=${limit}`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-          },
-        },
-      );
-    }
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch projects, status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    await delay(3000);
-
-    // Ensure data.data is an array
-    if (data && !Array.isArray(data.data)) {
-      data.data = [];
-    }
-
-    return data;
-  } catch (error) {
-    console.error("Error fetching projects:", error);
-    return {
-      page,
-      limit,
-      totalPages: 0,
-      totalProjects: 0,
-      data: [],
-    };
-  }
-};
 
 export const fetchPropertyById = async (
   propertyId: string,

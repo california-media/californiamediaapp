@@ -1,6 +1,6 @@
 import { File, Paths } from "expo-file-system";
 
-const API_BASE_URL = "http://royalblue-koala-951719.hostingersite.com/api";
+const API_BASE_URL = "https://royalblue-koala-951719.hostingersite.com/api";
 
 const CRM_BASE_URL = "https://crm.mydesk.ae/api";
 const CRM_AUTH_TOKEN =
@@ -119,7 +119,7 @@ export const fetchProjects = async (
 };
 
 // Download offplan brochure PDF for a project
-export const downloadBrochure = async (projectId: number): Promise<string> => {
+export const downloadBrochure = async (projectId: number | string): Promise<string> => {
   const url = `${CRM_BASE_URL}//properties/offplan_brochure?p_id=${projectId}&output_type=D`;
   const destFile = new File(Paths.cache, `brochure_${projectId}.pdf`);
 
@@ -134,21 +134,32 @@ export const downloadBrochure = async (projectId: number): Promise<string> => {
   return downloaded.uri;
 };
 
-// Fetch single project by ID
+// Fetch single project by ID (accepts numeric id or MongoDB _id string)
 export const fetchProjectById = async (
-  projectId: number,
+  projectId: number | string,
 ): Promise<any | null> => {
+  const url = `${API_BASE_URL}/projects/${projectId}`;
+  console.log("[fetchProjectById] URL:", url);
   try {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+    const response = await fetch(url, {
       method: "GET",
       headers: {
-        "Content-Type": "application/json",
+        Accept: "application/json",
       },
     });
+    console.log("[fetchProjectById] status:", response.status);
+    if (!response.ok) {
+      console.error("[fetchProjectById] non-OK status:", response.status);
+      return null;
+    }
     const data = await response.json();
+    if (data && data.error) {
+      console.error("[fetchProjectById] API error:", data.error);
+      return null;
+    }
     return data;
   } catch (error) {
-    console.error("Error fetching project details:", error);
+    console.error("[fetchProjectById] fetch error:", error);
     return null;
   }
 };

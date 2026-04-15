@@ -290,7 +290,7 @@ export default function HomeScreen() {
                   onPress={() =>
                     router.push({
                       pathname: "/project-detail",
-                      params: { projectId: project.id },
+                      params: { projectId: project.id ?? project._id },
                     })
                   }
                 >

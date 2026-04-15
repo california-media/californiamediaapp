@@ -162,17 +162,6 @@ export interface ProjectDetails extends Project {
   max_size?: number | null;
 }
 
-// types.ts
-export interface Project {
-  _id: string;
-  name: string;
-  developer: string;
-  area: string;
-  country: string;
-  sale_status: string;
-  s3_cover_url?: string;
-}
-
 export interface Property {
   id: string;
   property_type: string | null;

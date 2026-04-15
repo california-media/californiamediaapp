@@ -24,7 +24,13 @@ const { width, height } = Dimensions.get("window");
 export default function ProjectDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const projectId = parseInt(params.projectId as string);
+  const rawId = Array.isArray(params.projectId)
+    ? params.projectId[0]
+    : (params.projectId as string);
+  const projectId: number | string =
+    rawId && rawId !== "undefined" && !isNaN(Number(rawId))
+      ? Number(rawId)
+      : rawId ?? "";
   const [project, setProject] = useState<ProjectDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -45,15 +51,28 @@ export default function ProjectDetailScreen() {
   }
 
   useEffect(() => {
+    console.log("[project-detail] projectId from params:", projectId);
     loadProjectDetails();
     setMapReady(!!MapView);
-  }, []);
+  }, [projectId]);
 
   const loadProjectDetails = async () => {
+    if (!projectId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const data = await fetchProjectById(projectId);
-    setProject(data);
-    setLoading(false);
+    try {
+      console.log("Fetching project with id:", projectId);
+      const data = await fetchProjectById(projectId);
+      console.log("Project data received:", data ? "success" : "null");
+      setProject(data);
+    } catch (error) {
+      console.error("loadProjectDetails error:", error);
+      setProject(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
