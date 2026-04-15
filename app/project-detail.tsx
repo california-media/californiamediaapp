@@ -568,7 +568,6 @@ export default function ProjectDetailScreen() {
             //   openUrl(url);
             // }}
           >
-            {/* <Ionicons name="logo-whatsapp" size={20} color="#25D366" /> */}
             <Text
               style={[styles.actionButtonSecondaryText, { color: "#3919da" }]}
             >

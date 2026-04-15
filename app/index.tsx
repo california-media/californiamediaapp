@@ -714,7 +714,8 @@ const styles = StyleSheet.create({
   viewLeadButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#6366f1",
+    // color: "#6366f1",
+    color: "#0F172A",
   },
   projectsSection: {
     marginTop: 32,
