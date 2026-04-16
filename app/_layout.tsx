@@ -6,12 +6,10 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    // Must run after the Stack (navigation container) is mounted.
-    // Returning the Stack first ensures navigation is ready before we redirect.
-    initConfig().then(({ crmUrl, authToken }) => {
+    initConfig().then(({ crmUrl, userId }) => {
       if (!crmUrl) {
         router.replace("/connect");
-      } else if (!authToken) {
+      } else if (!userId) {
         router.replace("/login");
       }
     });
@@ -27,6 +25,7 @@ export default function RootLayout() {
       <Stack.Screen name="properties-list" options={{ headerShown: false, title: "Properties" }} />
       <Stack.Screen name="projects-list" options={{ headerShown: false, title: "Real Estate Projects" }} />
       <Stack.Screen name="project-detail" options={{ headerShown: false }} />
+      <Stack.Screen name="profile" options={{ headerShown: false, title: "Profile" }} />
     </Stack>
   );
 }

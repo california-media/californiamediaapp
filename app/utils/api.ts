@@ -1,6 +1,6 @@
 // app/utils/api.ts
 import { LeadsResponse } from "../types";
-import { getCrmApiUrl, getAuthToken, getCrmCookie } from "./config";
+import { getCrmApiUrl, getAuthToken, getCrmCookie, getUserId } from "./config";
 
 export const fetchAllLeads = async (params?: {
   search?: string;
@@ -68,6 +68,7 @@ export const fetchAllLeads = async (params?: {
       headers: {
         Authorization: token,
         Cookie: cookie,
+        "X-User-Id": getUserId(),
         "Content-Type": "application/json",
         Accept: "application/json",
       },
@@ -133,6 +134,7 @@ export const fetchLeadById = async (leadId: string) => {
       headers: {
         Authorization: getAuthToken(),
         Cookie: getCrmCookie(),
+        "X-User-Id": getUserId(),
         "Content-Type": "application/json",
         Accept: "application/json",
       },

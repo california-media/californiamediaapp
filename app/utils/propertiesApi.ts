@@ -1,6 +1,6 @@
 // app/utils/propertiesApi.ts
 import { FilterOptions, Property, PropertyDetails } from "../types";
-import { getAuthToken, getCrmApiUrl, getCrmCookie } from "./config";
+import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from "./config";
 
 export interface PropertiesResponse {
   data: Property[];
@@ -41,7 +41,7 @@ export const fetchProperties = async (
   try {
     const mergedFilters = {
       ...filters,
-      // listing_type: listingType,
+      listing_type: listingType,
     };
 
     const queryString = buildQueryString(mergedFilters, page, limit);
@@ -57,7 +57,8 @@ export const fetchProperties = async (
       method: "GET",
       headers: {
         Authorization: token,
-        // Cookie: cookie,
+        Cookie: cookie,
+        "X-User-Id": getUserId(),
         Accept: "application/json",
       },
     });
@@ -140,6 +141,7 @@ export const fetchPropertyById = async (
       headers: {
         Authorization: getAuthToken(),
         Cookie: getCrmCookie(),
+        "X-User-Id": getUserId(),
         Accept: "application/json",
       },
     });

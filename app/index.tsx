@@ -163,7 +163,10 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>Hello there! 👋</Text>
           <Text style={styles.subGreeting}>Welcome back to Lead Manager</Text>
         </View>
-        <TouchableOpacity style={styles.profileButton}>
+        <TouchableOpacity
+          style={styles.profileButton}
+          onPress={() => router.push("/profile")}
+        >
           <Ionicons name="person-circle-outline" size={44} color="#6366f1" />
         </TouchableOpacity>
       </View>
@@ -443,7 +446,7 @@ export default function HomeScreen() {
                   <View style={styles.propertySpecs}>
                     <View style={styles.propertySpec}>
                       <Ionicons
-                        name={getPropertyTypeIcon(property.property_type)}
+                        name={getPropertyTypeIcon(property.property_type ?? "")}
                         size={12}
                         color="#64748b"
                       />
@@ -559,7 +562,10 @@ export default function HomeScreen() {
           <Ionicons name="business" size={24} color="#94a3b8" />
           <Text style={styles.navText}>Projects</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/profile")}
+        >
           <Ionicons name="settings" size={24} color="#94a3b8" />
           <Text style={styles.navText}>Settings</Text>
         </TouchableOpacity>

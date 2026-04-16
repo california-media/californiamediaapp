@@ -11,7 +11,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { getCrmBaseUrl, setAuthToken, clearConfig } from "./utils/config";
+import {
+  getCrmBaseUrl,
+  getCrmApiUrl,
+  getCrmCookie,
+  getAuthToken,
+  setCrmCookie,
+  setUserId,
+  setStaffInfo,
+  clearConfig,
+} from "./utils/config";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -25,26 +34,40 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      setError("Please enter your username and password.");
+      setError("Please enter your email and password.");
       return;
     }
     setError("");
     setLoading(true);
 
     try {
-      // TODO: Replace with real login API call once available.
-      // Example:
-      // const res = await fetch(`${getCrmBaseUrl()}/api/auth/login`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ username, password }),
-      // });
-      // const data = await res.json();
-      // if (!res.ok) throw new Error(data.message || "Login failed");
-      // await setAuthToken(data.token);
+      const res = await fetch(`${getCrmApiUrl()}/login/data`, {
+        method: "POST",
+        headers: {
+          Authorization: getAuthToken(),
+          Cookie: getCrmCookie(),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ email: username.trim(), password }),
+      });
 
-      // Placeholder: store a session marker until the real API is ready
-      await setAuthToken("__placeholder_token__");
+      const data = await res.json();
+
+      if (!res.ok || !data.status) {
+        throw new Error(data.message || "Invalid email or password.");
+      }
+
+      // Capture fresh session cookie from the login response if available
+      const freshCookie = res.headers.get("set-cookie");
+      if (freshCookie) {
+        await setCrmCookie(freshCookie);
+      }
+
+      await setUserId(data.user_id);
+      if (data.staff) {
+        await setStaffInfo(data.staff);
+      }
       router.replace("/");
     } catch (err: any) {
       setError(err?.message || "Login failed. Please check your credentials.");
@@ -92,7 +115,7 @@ export default function LoginScreen() {
           />
           <TextInput
             style={styles.input}
-            placeholder="Username"
+            placeholder="Email"
             placeholderTextColor="#94a3b8"
             value={username}
             onChangeText={(t) => {
@@ -158,9 +181,7 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        <Text style={styles.note}>
-          Login API integration pending. Tap Sign In to continue.
-        </Text>
+
       </View>
     </KeyboardAvoidingView>
   );
