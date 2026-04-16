@@ -28,6 +28,7 @@ export default function HomeScreen() {
     [],
   );
   const [refreshing, setRefreshing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const router = useRouter();
 
   const loadData = async () => {
@@ -70,10 +71,11 @@ export default function HomeScreen() {
       console.log("Properties fetch failed:", propertiesResult.reason);
       setSecondaryProperties([]);
     }
+
+    setInitialLoading(false);
   };
 
   useEffect(() => {
-    console.log("🔥 useEffect triggered");
     loadData();
   }, []);
 
@@ -132,12 +134,12 @@ export default function HomeScreen() {
     }
   };
 
-  // Show loading state while fetching data
-  if (!latestLead && leads.length === 0) {
+  // Show loading spinner only during the initial fetch — not if data simply comes back empty
+  if (initialLoading) {
     return (
       <View style={styles.center}>
         <View style={styles.loaderContainer}>
-          <Text style={styles.loadingText}>Loading leads...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </View>
     );

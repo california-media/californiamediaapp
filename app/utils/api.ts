@@ -1,8 +1,6 @@
 // app/utils/api.ts
 import { LeadsResponse } from "../types";
-
-const AUTH_TOKEN =
-  "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibXlfZGVza191c2VyIiwibmFtZSI6Im15X2Rlc2tfdXNlciIsIkFQSV9USU1FIjoxNzc0MzQ1NTU2fQ.DF6on-w_MWS_qli_ejlRl1LEg1_qCw28NT6VinXfkNs";
+import { getCrmApiUrl, getAuthToken, getCrmCookie } from "./config";
 
 export const fetchAllLeads = async (params?: {
   search?: string;
@@ -58,18 +56,24 @@ export const fetchAllLeads = async (params?: {
       queryParams.append("sort_order", "DESC");
     }
 
-    const url = `https://crm.mydesk.ae/api/leads/listing${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+    const url = `${getCrmApiUrl()}/leads/listing${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
 
-    console.log("Fetching leads from:", url);
+    const token = getAuthToken();
+    const cookie = getCrmCookie();
+    console.log("[Leads] Token (first 30):", token.slice(0, 30));
+    console.log("[Leads] Cookie:", cookie);
 
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        Authorization: AUTH_TOKEN,
+        Authorization: token,
+        Cookie: cookie,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
     });
+
+    console.log("[Leads] Response status:", response.status);
 
     // Handle 404 as "no results found" instead of error
     if (response.status === 404) {
@@ -81,6 +85,11 @@ export const fetchAllLeads = async (params?: {
         limit: params?.limit || 20,
         hasMore: false,
       };
+    }
+
+    if (response.status === 401) {
+      console.error("[Leads] 401 Unauthorized — token or session cookie is expired. Update TEMP_TOKEN and TEMP_COOKIE in config.ts.");
+      return { data: [], total: 0, page: 1, limit: 20, hasMore: false };
     }
 
     // Handle other error statuses
@@ -119,10 +128,11 @@ export const fetchAllLeads = async (params?: {
 // Helper function to fetch single lead
 export const fetchLeadById = async (leadId: string) => {
   try {
-    const response = await fetch(`https://crm.mydesk.ae/api/leads/${leadId}`, {
+    const response = await fetch(`${getCrmApiUrl()}/leads/${leadId}`, {
       method: "GET",
       headers: {
-        Authorization: AUTH_TOKEN,
+        Authorization: getAuthToken(),
+        Cookie: getCrmCookie(),
         "Content-Type": "application/json",
         Accept: "application/json",
       },

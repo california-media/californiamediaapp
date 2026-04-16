@@ -1,10 +1,8 @@
 import { File, Paths } from "expo-file-system";
+import { getCrmApiUrl, getAuthToken } from "./config";
 
 const API_BASE_URL = "https://royalblue-koala-951719.hostingersite.com/api";
 
-const CRM_BASE_URL = "https://crm.mydesk.ae/api";
-const CRM_AUTH_TOKEN =
-  "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibXlfZGVza191c2VyIiwibmFtZSI6Im15X2Rlc2tfdXNlciIsIkFQSV9USU1FIjoxNzc0MzQ1NTU2fQ.DF6on-w_MWS_qli_ejlRl1LEg1_qCw28NT6VinXfkNs";
 const CRM_COOKIE =
   "csrf_cookie_name=3816f06da6449c3849931de02511ac4d; sp_session=c36d410f93e78671bc3eb5d42146e618d2b2cec0";
 
@@ -120,12 +118,12 @@ export const fetchProjects = async (
 
 // Download offplan brochure PDF for a project
 export const downloadBrochure = async (projectId: number | string): Promise<string> => {
-  const url = `${CRM_BASE_URL}//properties/offplan_brochure?p_id=${projectId}&output_type=D`;
+  const url = `${getCrmApiUrl()}//properties/offplan_brochure?p_id=${projectId}&output_type=D`;
   const destFile = new File(Paths.cache, `brochure_${projectId}.pdf`);
 
   const downloaded = await File.downloadFileAsync(url, destFile, {
     headers: {
-      Authorization: CRM_AUTH_TOKEN,
+      Authorization: getAuthToken(),
       Cookie: CRM_COOKIE,
     },
     idempotent: true,
