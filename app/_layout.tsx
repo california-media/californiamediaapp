@@ -26,6 +26,7 @@ export default function RootLayout() {
       <Stack.Screen name="projects-list" options={{ headerShown: false, title: "Real Estate Projects" }} />
       <Stack.Screen name="project-detail" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ headerShown: false, title: "Profile" }} />
+      <Stack.Screen name="add-lead" options={{ headerShown: false, title: "Add Lead" }} />
     </Stack>
   );
 }

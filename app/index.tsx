@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { Lead, Project, Property, defaultFilters } from "./types";
 import { fetchAllLeads } from "./utils/api";
-import { fetchProjects } from "./utils/projectsApi";
+// import { fetchProjects } from "./utils/projectsApi";
 import { fetchProperties } from "./utils/propertiesApi";
 
 const { width } = Dimensions.get("window");
@@ -33,9 +33,9 @@ export default function HomeScreen() {
 
   const loadData = async () => {
     // Run all three in parallel — a failure in one won't block the others
-    const [leadsResult, projectsResult, propertiesResult] = await Promise.allSettled([
+    const [leadsResult, propertiesResult] = await Promise.allSettled([
       fetchAllLeads({ limit: 100 }),
-      fetchProjects(1, 6),
+      // fetchProjects(1, 6),
       fetchProperties("Off-plan", defaultFilters, 1, 6),
     ]);
 
@@ -57,12 +57,12 @@ export default function HomeScreen() {
     }
 
     // Off-plan projects
-    if (projectsResult.status === "fulfilled") {
-      setFeaturedProjects(projectsResult.value.data || []);
-    } else {
-      console.log("Projects fetch failed:", projectsResult.reason);
-      setFeaturedProjects([]);
-    }
+    // if (projectsResult.status === "fulfilled") {
+    //   setFeaturedProjects(projectsResult.value.data || []);
+    // } else {
+    //   console.log("Projects fetch failed:", projectsResult.reason);
+    //   setFeaturedProjects([]);
+    // }
 
     // Secondary properties
     if (propertiesResult.status === "fulfilled") {
@@ -255,7 +255,7 @@ export default function HomeScreen() {
       )}
 
       {/* Featured Projects Section - Off-Plan */}
-      <View style={styles.projectsSection}>
+      {/* <View style={styles.projectsSection}>
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>Global Off-Plan</Text>
@@ -358,7 +358,7 @@ export default function HomeScreen() {
             </Text>
           </View>
         )}
-      </View>
+      </View> */}
 
       {/* Secondary Properties Section */}
       <View style={styles.propertiesSection}>

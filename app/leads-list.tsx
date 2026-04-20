@@ -58,8 +58,14 @@ const UNIT_TYPE_OPTIONS = [
 
 // Consistent avatar color per initial letter
 const AVATAR_COLORS = [
-  "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
-  "#f59e0b", "#10b981", "#06b6d4", "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#ef4444",
+  "#f59e0b",
+  "#10b981",
+  "#06b6d4",
+  "#3b82f6",
 ];
 const avatarColor = (name: string) =>
   AVATAR_COLORS[(name?.charCodeAt(0) ?? 0) % AVATAR_COLORS.length];
@@ -93,8 +99,10 @@ export default function LeadsListScreen() {
     newFilters?: typeof filters,
   ) => {
     const currentFilters = newFilters || filters;
-    if (pageNum === 1) { setLoading(true); setError(null); }
-    else setLoadingMore(true);
+    if (pageNum === 1) {
+      setLoading(true);
+      setError(null);
+    } else setLoadingMore(true);
 
     try {
       const params: any = {};
@@ -123,7 +131,9 @@ export default function LeadsListScreen() {
     }
   };
 
-  useEffect(() => { loadLeads(1, true); }, [filters]);
+  useEffect(() => {
+    loadLeads(1, true);
+  }, [filters]);
   useEffect(() => {
     const t = setTimeout(() => loadLeads(1, true), 500);
     return () => clearTimeout(t);
@@ -144,13 +154,27 @@ export default function LeadsListScreen() {
     setFilters(tempFilters);
     setShowFilterModal(false);
     Animated.sequence([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.timing(fadeAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 2000,
+        useNativeDriver: true,
+      }),
     ]).start();
   };
 
   const clearFilters = () => {
-    const reset = { source: "", status: "", unit_type: "", sort_by: "dateadded", sort_order: "DESC" as const };
+    const reset = {
+      source: "",
+      status: "",
+      unit_type: "",
+      sort_by: "dateadded",
+      sort_order: "DESC" as const,
+    };
     setFilters(reset);
     setTempFilters(reset);
     setSearchQuery("");
@@ -158,19 +182,27 @@ export default function LeadsListScreen() {
   };
 
   const handleCall = (phone: string) =>
-    Linking.openURL(`tel:${phone.replace(/\D/g, "")}`).catch(() => alert("Could not call"));
+    Linking.openURL(`tel:${phone.replace(/\D/g, "")}`).catch(() =>
+      alert("Could not call"),
+    );
 
   const handleWhatsApp = (phone: string) =>
-    Linking.openURL(`https://wa.me/${phone.replace(/\D/g, "")}`).catch(() => alert("Could not open WhatsApp"));
+    Linking.openURL(`https://wa.me/${phone.replace(/\D/g, "")}`).catch(() =>
+      alert("Could not open WhatsApp"),
+    );
 
   const getStatusColor = (name: string) =>
     STATUS_OPTIONS.find((s) => s.label === name)?.color ?? "#64748b";
 
   const hasActiveFilters = () =>
-    Object.entries(filters).some(([k, v]) => v !== "" && k !== "sort_by" && k !== "sort_order");
+    Object.entries(filters).some(
+      ([k, v]) => v !== "" && k !== "sort_by" && k !== "sort_order",
+    );
 
   const getActiveFilterCount = () =>
-    Object.entries(filters).filter(([k, v]) => v !== "" && k !== "sort_by" && k !== "sort_order").length;
+    Object.entries(filters).filter(
+      ([k, v]) => v !== "" && k !== "sort_by" && k !== "sort_order",
+    ).length;
 
   /* ── Card ── */
   const renderLeadCard = ({ item }: { item: Lead }) => {
@@ -181,10 +213,15 @@ export default function LeadsListScreen() {
     return (
       <TouchableOpacity
         style={styles.leadCard}
-        onPress={() => router.push({ pathname: "/lead-detail", params: { lead: JSON.stringify(item) } })}
+        onPress={() =>
+          router.push({
+            pathname: "/lead-detail",
+            params: { lead: JSON.stringify(item) },
+          })
+        }
         activeOpacity={0.72}
       >
-        {/* Top row: avatar · name/phone · status */}
+        {/* Top row: avatar · name/phone · call/whatsapp */}
         <View style={styles.cardTop}>
           <View style={[styles.avatar, { backgroundColor: color + "22" }]}>
             <Text style={[styles.avatarLetter, { color }]}>
@@ -193,13 +230,48 @@ export default function LeadsListScreen() {
           </View>
 
           <View style={styles.cardMeta}>
-            <Text style={styles.leadName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.leadName} numberOfLines={1}>
+              {item.name}
+            </Text>
             {hasPhone && (
               <View style={styles.phoneRow}>
-                <Ionicons name="call-outline" size={12} color="#94a3b8" />
+                <Ionicons name="call-outline" size={11} color="#94a3b8" />
                 <Text style={styles.phoneText}>{item.phonenumber}</Text>
               </View>
             )}
+          </View>
+
+          {hasPhone && (
+            <View style={styles.actionIcons}>
+              <TouchableOpacity
+                style={styles.iconBtnCall}
+                onPress={(e) => { e.stopPropagation(); handleCall(item.phonenumber); }}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Ionicons name="call" size={15} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconBtnWa}
+                onPress={(e) => { e.stopPropagation(); handleWhatsApp(item.phonenumber); }}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Ionicons name="logo-whatsapp" size={15} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Divider */}
+        <View style={styles.cardDivider} />
+
+        {/* Bottom row: source · status */}
+        <View style={styles.cardBottom}>
+          <View style={styles.sourceBadge}>
+            <Ionicons name="flash-outline" size={11} color="#6366f1" />
+            <Text style={styles.sourcePrefix}>Source: </Text>
+            <Text style={styles.sourceText} numberOfLines={1}>
+              {item.source_name || "Direct"}
+            </Text>
           </View>
 
           <View style={[styles.statusPill, { backgroundColor: statusColor + "18" }]}>
@@ -208,33 +280,6 @@ export default function LeadsListScreen() {
               {item.status_name || "New"}
             </Text>
           </View>
-        </View>
-
-        {/* Bottom row: source · action icons */}
-        <View style={styles.cardBottom}>
-          <View style={styles.sourceBadge}>
-            <Ionicons name="flash-outline" size={12} color="#6366f1" />
-            <Text style={styles.sourceText}>{item.source_name || "Lead"}</Text>
-          </View>
-
-          {hasPhone && (
-            <View style={styles.actionIcons}>
-              <TouchableOpacity
-                style={styles.iconBtnCall}
-                onPress={() => handleCall(item.phonenumber)}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <Ionicons name="call" size={17} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.iconBtnWa}
-                onPress={() => handleWhatsApp(item.phonenumber)}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <Ionicons name="logo-whatsapp" size={17} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -270,11 +315,16 @@ export default function LeadsListScreen() {
           )}
         </View>
 
-        <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
+        <TouchableOpacity
+          style={styles.filterBtn}
+          onPress={() => setShowFilterModal(true)}
+        >
           <Ionicons name="options-outline" size={22} color="#6366f1" />
           {hasActiveFilters() && (
             <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
+              <Text style={styles.filterBadgeText}>
+                {getActiveFilterCount()}
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -283,7 +333,9 @@ export default function LeadsListScreen() {
       {/* Stats row */}
       <View style={styles.statsRow}>
         <Text style={styles.statsText}>
-          {leads.length > 0 ? `${leads.length} of ${totalResults || leads.length} leads` : "No leads found"}
+          {leads.length > 0
+            ? `${leads.length} of ${totalResults || leads.length} leads`
+            : "No leads found"}
         </Text>
         {hasActiveFilters() && (
           <TouchableOpacity style={styles.clearChip} onPress={clearFilters}>
@@ -297,29 +349,56 @@ export default function LeadsListScreen() {
 
   /* ── Filter modal ── */
   const filterModal = (
-    <Modal visible={showFilterModal} animationType="slide" transparent onRequestClose={() => setShowFilterModal(false)}>
+    <Modal
+      visible={showFilterModal}
+      animationType="slide"
+      transparent
+      onRequestClose={() => setShowFilterModal(false)}
+    >
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Filter Leads</Text>
-            <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.closeBtn}>
+            <TouchableOpacity
+              onPress={() => setShowFilterModal(false)}
+              style={styles.closeBtn}
+            >
               <Ionicons name="close" size={22} color="#1e293b" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          >
             <FilterSection label="Source">
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipRow}>
                   {SOURCE_OPTIONS.map((o) => (
                     <TouchableOpacity
                       key={o.id}
-                      style={[styles.chip, tempFilters.source === o.id && styles.chipActive]}
-                      onPress={() => setTempFilters({ ...tempFilters, source: o.id })}
+                      style={[
+                        styles.chip,
+                        tempFilters.source === o.id && styles.chipActive,
+                      ]}
+                      onPress={() =>
+                        setTempFilters({ ...tempFilters, source: o.id })
+                      }
                     >
-                      <Ionicons name={o.icon as any} size={14} color={tempFilters.source === o.id ? "#fff" : "#64748b"} />
-                      <Text style={[styles.chipText, tempFilters.source === o.id && styles.chipTextActive]}>{o.label}</Text>
+                      <Ionicons
+                        name={o.icon as any}
+                        size={14}
+                        color={tempFilters.source === o.id ? "#fff" : "#64748b"}
+                      />
+                      <Text
+                        style={[
+                          styles.chipText,
+                          tempFilters.source === o.id && styles.chipTextActive,
+                        ]}
+                      >
+                        {o.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -332,11 +411,25 @@ export default function LeadsListScreen() {
                   {STATUS_OPTIONS.map((o) => (
                     <TouchableOpacity
                       key={o.id}
-                      style={[styles.chip, tempFilters.status === o.id && styles.chipActive]}
-                      onPress={() => setTempFilters({ ...tempFilters, status: o.id })}
+                      style={[
+                        styles.chip,
+                        tempFilters.status === o.id && styles.chipActive,
+                      ]}
+                      onPress={() =>
+                        setTempFilters({ ...tempFilters, status: o.id })
+                      }
                     >
-                      <View style={[styles.dotSmall, { backgroundColor: o.color }]} />
-                      <Text style={[styles.chipText, tempFilters.status === o.id && styles.chipTextActive]}>{o.label}</Text>
+                      <View
+                        style={[styles.dotSmall, { backgroundColor: o.color }]}
+                      />
+                      <Text
+                        style={[
+                          styles.chipText,
+                          tempFilters.status === o.id && styles.chipTextActive,
+                        ]}
+                      >
+                        {o.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -349,10 +442,23 @@ export default function LeadsListScreen() {
                   {UNIT_TYPE_OPTIONS.map((o) => (
                     <TouchableOpacity
                       key={o.id}
-                      style={[styles.chip, tempFilters.unit_type === o.id && styles.chipActive]}
-                      onPress={() => setTempFilters({ ...tempFilters, unit_type: o.id })}
+                      style={[
+                        styles.chip,
+                        tempFilters.unit_type === o.id && styles.chipActive,
+                      ]}
+                      onPress={() =>
+                        setTempFilters({ ...tempFilters, unit_type: o.id })
+                      }
                     >
-                      <Text style={[styles.chipText, tempFilters.unit_type === o.id && styles.chipTextActive]}>{o.label}</Text>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          tempFilters.unit_type === o.id &&
+                            styles.chipTextActive,
+                        ]}
+                      >
+                        {o.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -364,12 +470,28 @@ export default function LeadsListScreen() {
                 {(["DESC", "ASC"] as const).map((order) => (
                   <TouchableOpacity
                     key={order}
-                    style={[styles.sortBtn, tempFilters.sort_order === order && styles.sortBtnActive]}
-                    onPress={() => setTempFilters({ ...tempFilters, sort_order: order })}
+                    style={[
+                      styles.sortBtn,
+                      tempFilters.sort_order === order && styles.sortBtnActive,
+                    ]}
+                    onPress={() =>
+                      setTempFilters({ ...tempFilters, sort_order: order })
+                    }
                   >
-                    <Ionicons name={order === "DESC" ? "arrow-down" : "arrow-up"} size={16}
-                      color={tempFilters.sort_order === order ? "#fff" : "#64748b"} />
-                    <Text style={[styles.sortBtnText, tempFilters.sort_order === order && styles.sortBtnTextActive]}>
+                    <Ionicons
+                      name={order === "DESC" ? "arrow-down" : "arrow-up"}
+                      size={16}
+                      color={
+                        tempFilters.sort_order === order ? "#fff" : "#64748b"
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.sortBtnText,
+                        tempFilters.sort_order === order &&
+                          styles.sortBtnTextActive,
+                      ]}
+                    >
                       {order === "DESC" ? "Newest First" : "Oldest First"}
                     </Text>
                   </TouchableOpacity>
@@ -421,7 +543,13 @@ export default function LeadsListScreen() {
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6366f1"
+          />
+        }
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.footerLoader}>
@@ -436,7 +564,9 @@ export default function LeadsListScreen() {
               <Ionicons name="people-outline" size={60} color="#cbd5e1" />
               <Text style={styles.emptyTitle}>No Leads Found</Text>
               <Text style={styles.emptySubtitle}>
-                {hasActiveFilters() ? "Try adjusting your filters" : "Pull down to refresh"}
+                {hasActiveFilters()
+                  ? "Try adjusting your filters"
+                  : "Pull down to refresh"}
               </Text>
             </View>
           ) : null
@@ -444,12 +574,27 @@ export default function LeadsListScreen() {
       />
 
       {filterModal}
+
+      {/* FAB — Add Lead */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push("/add-lead")}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 /* ── helper component ── */
-function FilterSection({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.filterSection}>
       <Text style={styles.filterSectionLabel}>{label}</Text>
@@ -461,7 +606,12 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
 /* ── styles ── */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f1f5f9" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f1f5f9" },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f1f5f9",
+  },
   loadingText: { marginTop: 12, fontSize: 14, color: "#64748b" },
 
   /* top bar */
@@ -469,7 +619,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 56,
+    paddingTop: 16,
     paddingBottom: 12,
     backgroundColor: "#fff",
     gap: 10,
@@ -477,46 +627,83 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e2e8f0",
   },
   backBtn: {
-    width: 42, height: 42, borderRadius: 12,
-    backgroundColor: "#f8fafc", justifyContent: "center", alignItems: "center",
-    borderWidth: 1, borderColor: "#e2e8f0",
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   searchBox: {
-    flex: 1, flexDirection: "row", alignItems: "center",
-    backgroundColor: "#f8fafc", borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1, borderColor: "#e2e8f0", gap: 8,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    // paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 8,
   },
   searchInput: { flex: 1, fontSize: 15, color: "#1e293b" },
   filterBtn: {
-    width: 42, height: 42, borderRadius: 12,
-    backgroundColor: "#eef2ff", justifyContent: "center", alignItems: "center",
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#eef2ff",
+    justifyContent: "center",
+    alignItems: "center",
     position: "relative",
   },
   filterBadge: {
-    position: "absolute", top: -4, right: -4,
-    backgroundColor: "#6366f1", borderRadius: 9,
-    minWidth: 18, height: 18, justifyContent: "center", alignItems: "center", paddingHorizontal: 3,
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#6366f1",
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
   },
   filterBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
 
   /* stats */
   statsRow: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 16, paddingVertical: 10, backgroundColor: "#fff",
-    borderBottomWidth: 1, borderBottomColor: "#f1f5f9",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
   },
   statsText: { fontSize: 13, color: "#64748b", fontWeight: "500" },
   clearChip: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "#eef2ff", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#eef2ff",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
   },
   clearChipText: { fontSize: 12, color: "#6366f1", fontWeight: "500" },
 
   successBanner: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: "#d1fae5", marginHorizontal: 16, marginTop: 12,
-    padding: 10, borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#d1fae5",
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 10,
   },
   successText: { fontSize: 13, color: "#065f46", fontWeight: "500" },
 
@@ -526,90 +713,186 @@ const styles = StyleSheet.create({
   /* card */
   leadCard: {
     backgroundColor: "#fff",
-    borderRadius: 18,
+    borderRadius: 14,
     marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
     shadowColor: "#64748b",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
   /* card top */
-  cardTop: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  cardTop: { flexDirection: "row", alignItems: "center" },
   avatar: {
-    width: 48, height: 48, borderRadius: 14,
-    justifyContent: "center", alignItems: "center", marginRight: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
   },
-  avatarLetter: { fontSize: 20, fontWeight: "700" },
+  avatarLetter: { fontSize: 18, fontWeight: "700" },
   cardMeta: { flex: 1, marginRight: 8 },
-  leadName: { fontSize: 16, fontWeight: "700", color: "#0f172a", marginBottom: 3 },
-  phoneRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  phoneText: { fontSize: 13, color: "#64748b" },
-  statusPill: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 9, paddingVertical: 5, borderRadius: 20, maxWidth: 130,
+  leadName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0f172a",
+    marginBottom: 2,
   },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusLabel: { fontSize: 11, fontWeight: "600" },
+  phoneRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+  phoneText: { fontSize: 12, color: "#64748b" },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    maxWidth: 120,
+  },
+  statusDot: { width: 5, height: 5, borderRadius: 3 },
+  statusLabel: { fontSize: 10, fontWeight: "600" },
 
   /* card bottom */
-  cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sourceBadge: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "#eef2ff", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
+  cardBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  sourceText: { fontSize: 12, color: "#6366f1", fontWeight: "600" },
-  actionIcons: { flexDirection: "row", gap: 8 },
+  sourceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flex: 1,
+  },
+  sourceText: { fontSize: 11, color: "#6366f1", fontWeight: "600" },
+  actionIcons: { flexDirection: "row", gap: 6 },
   iconBtnCall: {
-    width: 38, height: 38, borderRadius: 12,
-    backgroundColor: "#2563eb", justifyContent: "center", alignItems: "center",
-    shadowColor: "#2563eb", shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35, shadowRadius: 5, elevation: 3,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#2563eb",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#2563eb",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   iconBtnWa: {
-    width: 38, height: 38, borderRadius: 12,
-    backgroundColor: "#25D366", justifyContent: "center", alignItems: "center",
-    shadowColor: "#25D366", shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35, shadowRadius: 5, elevation: 3,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#25D366",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#25D366",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   /* empty / error */
   emptyBox: { alignItems: "center", paddingTop: 60, paddingBottom: 40 },
-  emptyTitle: { fontSize: 17, fontWeight: "600", color: "#1e293b", marginTop: 14 },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1e293b",
+    marginTop: 14,
+  },
   emptySubtitle: { fontSize: 14, color: "#94a3b8", marginTop: 6 },
   errorBox: { alignItems: "center", padding: 32 },
-  errorText: { fontSize: 15, color: "#64748b", textAlign: "center", marginTop: 10, marginBottom: 18 },
-  retryBtn: { backgroundColor: "#6366f1", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  errorText: {
+    fontSize: 15,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 10,
+    marginBottom: 18,
+  },
+  retryBtn: {
+    backgroundColor: "#6366f1",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
   retryText: { fontSize: 14, fontWeight: "600", color: "#fff" },
 
   /* footer loader */
-  footerLoader: { paddingVertical: 20, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
+  footerLoader: {
+    paddingVertical: 20,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
   loadingMoreText: { fontSize: 13, color: "#64748b" },
 
   /* filter modal */
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-  modalSheet: {
-    backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32, maxHeight: "88%",
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
   },
-  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#e2e8f0", alignSelf: "center", marginBottom: 16 },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  modalSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+    maxHeight: "88%",
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#e2e8f0",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   modalTitle: { fontSize: 20, fontWeight: "700", color: "#0f172a" },
-  closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#f1f5f9", justifyContent: "center", alignItems: "center" },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#f1f5f9",
+    justifyContent: "center",
+    alignItems: "center",
+  },
 
   filterSection: { marginBottom: 22 },
-  filterSectionLabel: { fontSize: 12, fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 },
+  filterSectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#94a3b8",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
   chipRow: { flexDirection: "row", gap: 8, paddingRight: 20 },
   chip: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 14, paddingVertical: 9,
-    borderRadius: 22, backgroundColor: "#f8fafc",
-    borderWidth: 1, borderColor: "#e2e8f0",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 22,
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   chipActive: { backgroundColor: "#6366f1", borderColor: "#6366f1" },
   chipText: { fontSize: 13, color: "#475569" },
@@ -618,20 +901,61 @@ const styles = StyleSheet.create({
 
   sortRow: { flexDirection: "row", gap: 10 },
   sortBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 7, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: "#f8fafc", borderWidth: 1, borderColor: "#e2e8f0",
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   sortBtnActive: { backgroundColor: "#6366f1", borderColor: "#6366f1" },
   sortBtnText: { fontSize: 13, color: "#475569", fontWeight: "500" },
   sortBtnTextActive: { color: "#fff", fontWeight: "600" },
 
-  modalFooter: { flexDirection: "row", gap: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: "#f1f5f9" },
+  modalFooter: {
+    flexDirection: "row",
+    gap: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+  },
   clearBtn: {
-    flex: 1, paddingVertical: 14, borderRadius: 14,
-    borderWidth: 1, borderColor: "#e2e8f0", alignItems: "center",
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    alignItems: "center",
   },
   clearBtnText: { fontSize: 15, fontWeight: "600", color: "#64748b" },
-  applyBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: "#6366f1", alignItems: "center" },
+  applyBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "#6366f1",
+    alignItems: "center",
+  },
   applyBtnText: { fontSize: 15, fontWeight: "600", color: "#fff" },
+  cardDivider: { height: 1, backgroundColor: "#f1f5f9", marginVertical: 8 },
+  sourcePrefix: { fontSize: 11, color: "#94a3b8", fontWeight: "500" },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#6366f1",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#6366f1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
 });

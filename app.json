@@ -14,10 +14,19 @@
       "buildNumber": "8",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload and share images."
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload and share images.",
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "royalblue-koala-951719.hostingersite.com": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": false
+            }
+          }
+        }
       }
     },
     "android": {
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
