@@ -1,9 +1,13 @@
 // app/property-detail.tsx
 import { Ionicons } from "@expo/vector-icons";
+import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
+import { downloadAsync, cacheDirectory } from "expo-file-system/legacy";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import * as Sharing from "expo-sharing";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   Modal,
@@ -15,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { PropertyDetails } from "./types";
+import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from "./utils/config";
 import { fetchPropertyById } from "./utils/propertiesApi";
 
 const { width } = Dimensions.get("window");
@@ -28,6 +33,9 @@ export default function PropertyDetailScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const sliderRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadPropertyDetails();
@@ -82,7 +90,39 @@ export default function PropertyDetailScreen() {
   };
 
   const stripHtml = (html: string) => {
-    return html?.replace(/<[^>]*>/g, "") || "";
+    return html?.replace(/<[^>]*>/g, "").replace(/^#{1,6}\s*/gm, "") || "";
+  };
+
+  const handleAiPresentation = async () => {
+    if (!propertyId) return;
+    setPdfLoading(true);
+    try {
+      const url = `${getCrmApiUrl()}/properties/pdf?id=${propertyId}&output_type=I`;
+      const fileUri = `${cacheDirectory}property_${propertyId}.pdf`;
+      const result = await downloadAsync(url, fileUri, {
+        headers: {
+          Authorization: getAuthToken(),
+          "X-User-Id": getUserId(),
+          Cookie: getCrmCookie(),
+        },
+      });
+      if (result.status === 200) {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(result.uri, {
+            mimeType: "application/pdf",
+            dialogTitle: "AI Presentation",
+            UTI: "com.adobe.pdf",
+          });
+        }
+      } else {
+        Alert.alert("Error", "Could not load the presentation. Please try again.");
+      }
+    } catch {
+      Alert.alert("Error", "Failed to open the presentation.");
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const parseImages = (imageString: string | null): string[] => {
@@ -136,43 +176,58 @@ export default function PropertyDetailScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Header Image */}
+      {/* Image Slider */}
       <View style={styles.imageContainer}>
-        <Image source={{ uri: property.thumbnail }} style={styles.coverImage} />
-
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
+        <ScrollView
+          ref={sliderRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+            setCurrentImageIndex(idx);
+          }}
         >
+          {allImages.map((img, i) => (
+            <TouchableOpacity key={i} activeOpacity={0.95} onPress={() => setSelectedImage(img)}>
+              <Image source={{ uri: img }} style={styles.coverImage} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
 
-        {/* Share and Like */}
         <View style={styles.actionButtons}>
           <TouchableOpacity style={styles.actionCircle} onPress={onShare}>
             <Ionicons name="share-social-outline" size={20} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionCircle}
-            onPress={() => setIsLiked(!isLiked)}
-          >
-            <Ionicons
-              name={isLiked ? "heart" : "heart-outline"}
-              size={20}
-              color={isLiked ? "#ef4444" : "#fff"}
-            />
+          <TouchableOpacity style={styles.actionCircle} onPress={() => setIsLiked(!isLiked)}>
+            <Ionicons name={isLiked ? "heart" : "heart-outline"} size={20} color={isLiked ? "#ef4444" : "#fff"} />
           </TouchableOpacity>
         </View>
 
-        {/* Status Badge */}
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(property.property_status) },
-          ]}
-        >
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(property.property_status) }]}>
           <Text style={styles.statusText}>{property.property_status}</Text>
         </View>
+
+        {/* Image counter */}
+        {allImages.length > 1 && (
+          <View style={styles.imageCounter}>
+            <Text style={styles.imageCounterText}>{currentImageIndex + 1} / {allImages.length}</Text>
+          </View>
+        )}
+
+        {/* Dot indicators */}
+        {allImages.length > 1 && (
+          <View style={styles.dotRow}>
+            {allImages.map((_, i) => (
+              <View key={i} style={[styles.dot, i === currentImageIndex && styles.dotActive]} />
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Content */}
@@ -296,45 +351,51 @@ export default function PropertyDetailScreen() {
           </View>
         </ScrollView>
 
-        {/* Master Plan / Gallery */}
-        {allImages.length > 1 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Gallery</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.galleryScroll}
-            >
-              {allImages.map((image, index) => (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => setSelectedImage(image)}
-                >
-                  <Image source={{ uri: image }} style={styles.galleryImage} />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
 
-        {/* Amenities / Nearby Locations */}
-        {property.near_by_locations && (
+        {/* Map + Nearby Locations */}
+        {(property.latitude || property.near_by_locations) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Nearby Locations</Text>
-            <View style={styles.amenitiesGrid}>
-              {stripHtml(property.near_by_locations)
-                .split(",")
-                .map((item, index) => (
-                  <View key={index} style={styles.amenityTag}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={16}
-                      color="#10b981"
-                    />
-                    <Text style={styles.amenityText}>{item.trim()}</Text>
-                  </View>
-                ))}
-            </View>
+            <Text style={styles.sectionTitle}>Location</Text>
+
+            {property.latitude && property.longitude && (
+              <MapView
+                provider={PROVIDER_DEFAULT}
+                style={styles.map}
+                initialRegion={{
+                  latitude: parseFloat(property.latitude) || 25.2048,
+                  longitude: parseFloat(property.longitude) || 55.2708,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                scrollEnabled
+                zoomEnabled
+              >
+                <Marker
+                  coordinate={{
+                    latitude: parseFloat(property.latitude) || 25.2048,
+                    longitude: parseFloat(property.longitude) || 55.2708,
+                  }}
+                  title={property.project_name}
+                  description={property.location || property.bayut_location_name || ""}
+                />
+              </MapView>
+            )}
+
+            {property.near_by_locations && (
+              <>
+                <Text style={styles.nearbyLabel}>Nearby</Text>
+                <View style={styles.amenitiesGrid}>
+                  {stripHtml(property.near_by_locations)
+                    .split(",")
+                    .map((item, index) => (
+                      <View key={index} style={styles.amenityTag}>
+                        <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                        <Text style={styles.amenityText}>{item.trim()}</Text>
+                      </View>
+                    ))}
+                </View>
+              </>
+            )}
           </View>
         )}
 
@@ -345,10 +406,20 @@ export default function PropertyDetailScreen() {
           <Text style={styles.agentText}>Agent: {property.agent_name}</Text>
         </View>
 
-        {/* Contact Button */}
-        <TouchableOpacity style={styles.contactButton}>
-          <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
-          <Text style={styles.contactButtonText}>Contact Agent</Text>
+        {/* AI Presentation Button */}
+        <TouchableOpacity
+          style={[styles.contactButton, pdfLoading && { opacity: 0.7 }]}
+          onPress={handleAiPresentation}
+          disabled={pdfLoading}
+        >
+          {pdfLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="sparkles-outline" size={20} color="#fff" />
+          )}
+          <Text style={styles.contactButtonText}>
+            {pdfLoading ? "Loading…" : "AI Presentation"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -414,10 +485,11 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: "relative",
     height: 300,
+    overflow: "hidden",
   },
   coverImage: {
-    width: "100%",
-    height: "100%",
+    width: width,
+    height: 300,
     resizeMode: "cover",
   },
   backButton: {
@@ -458,6 +530,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#fff",
     fontWeight: "600",
+  },
+  imageCounter: {
+    position: "absolute",
+    top: 50,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  imageCounterText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  dotRow: {
+    position: "absolute",
+    bottom: 14,
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.45)",
+  },
+  dotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#fff",
   },
   content: {
     padding: 20,
@@ -586,6 +693,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 12,
     backgroundColor: "#f1f5f9",
+  },
+  map: {
+    width: "100%",
+    height: 200,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  nearbyLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748b",
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   amenitiesGrid: {
     flexDirection: "row",

@@ -12,9 +12,7 @@ interface PropertyCardProps {
 const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
   const formatPrice = (price: string) => {
     const numPrice = parseFloat(price);
-    // if (numPrice >= 1000000) {
-    //   return `AED ${(numPrice / 1000000).toFixed(1)}M`;
-    // }
+    if (!price || isNaN(numPrice) || numPrice === 0) return "Price on Request";
     return `AED ${numPrice.toLocaleString()}`;
   };
 

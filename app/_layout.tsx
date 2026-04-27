@@ -27,6 +27,13 @@ export default function RootLayout() {
       <Stack.Screen name="project-detail" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ headerShown: false, title: "Profile" }} />
       <Stack.Screen name="add-lead" options={{ headerShown: false, title: "Add Lead" }} />
+      <Stack.Screen name="db-leads-list" options={{ headerShown: false, title: "DB Leads" }} />
+      <Stack.Screen name="db-lead-detail" options={{ headerShown: false, title: "DB Lead Details" }} />
+      <Stack.Screen name="add-db-lead" options={{ headerShown: false, title: "Add DB Lead" }} />
+      <Stack.Screen name="deals-list" options={{ headerShown: false, title: "Deals" }} />
+      <Stack.Screen name="deal-detail" options={{ headerShown: false, title: "Deal Details" }} />
+      <Stack.Screen name="add-deal" options={{ headerShown: false, title: "Add Deal" }} />
+      <Stack.Screen name="todos-list" options={{ headerShown: false, title: "Todos" }} />
     </Stack>
   );
 }

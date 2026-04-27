@@ -1,5 +1,6 @@
-// app/index.tsx (HomeScreen)
+// app/index.tsx
 import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -12,562 +13,377 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Lead, Project, Property, defaultFilters } from "./types";
-import { fetchAllLeads } from "./utils/api";
-// import { fetchProjects } from "./utils/projectsApi";
+
+const SCREEN_W = Dimensions.get("window").width;
+import { Lead, Property, defaultFilters } from "./types";
+import { LeadStatus, fetchAllLeads, fetchDbLeads, fetchDeals, fetchLeadStatuses } from "./utils/api";
 import { fetchProperties } from "./utils/propertiesApi";
 
-const { width } = Dimensions.get("window");
+
+const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f59e0b","#10b981","#06b6d4","#3b82f6"];
+const avatarBg = (name: string) => AVATAR_COLORS[(name?.charCodeAt(0) ?? 0) % AVATAR_COLORS.length];
 
 export default function HomeScreen() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [latestLead, setLatestLead] = useState<Lead | null>(null);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
-  const [featuredProjects, setFeaturedProjects] = useState<Project[]>([]);
-  const [secondaryProperties, setSecondaryProperties] = useState<Property[]>(
-    [],
-  );
+  const [dbLeadsTotal, setDbLeadsTotal] = useState<number>(0);
+  const [dealsTotal, setDealsTotal] = useState<number>(0);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [apiStatuses, setApiStatuses] = useState<LeadStatus[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const router = useRouter();
 
   const loadData = async () => {
-    // Run all three in parallel — a failure in one won't block the others
-    const [leadsResult, propertiesResult] = await Promise.allSettled([
+    const [leadsRes, propsRes, dbRes, dealsRes, statusRes] = await Promise.allSettled([
       fetchAllLeads({ limit: 100 }),
-      // fetchProjects(1, 6),
       fetchProperties("Off-plan", defaultFilters, 1, 6),
+      fetchDbLeads({ limit: 1, page: 1 }),
+      fetchDeals({ limit: 1, page: 1 }),
+      fetchLeadStatuses(),
     ]);
-
-    // Leads
-    if (leadsResult.status === "fulfilled") {
-      const allLeads = leadsResult.value.data || [];
-      const sortedLeads = [...allLeads].sort(
-        (a, b) =>
-          new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime(),
-      );
-      setLeads(allLeads);
-      setLatestLead(sortedLeads[0] || null);
-      setRecentLeads(sortedLeads.slice(1, 5));
-    } else {
-      console.log("Leads fetch failed:", leadsResult.reason);
-      setLeads([]);
-      setLatestLead(null);
-      setRecentLeads([]);
+    if (leadsRes.status === "fulfilled") {
+      const all = leadsRes.value.data || [];
+      const sorted = [...all].sort((a, b) => new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime());
+      setLeads(all);
+      setLatestLead(sorted[0] || null);
+      setRecentLeads(sorted.slice(1, 7));
     }
-
-    // Off-plan projects
-    // if (projectsResult.status === "fulfilled") {
-    //   setFeaturedProjects(projectsResult.value.data || []);
-    // } else {
-    //   console.log("Projects fetch failed:", projectsResult.reason);
-    //   setFeaturedProjects([]);
-    // }
-
-    // Secondary properties
-    if (propertiesResult.status === "fulfilled") {
-      setSecondaryProperties(propertiesResult.value.data || []);
-    } else {
-      console.log("Properties fetch failed:", propertiesResult.reason);
-      setSecondaryProperties([]);
-    }
-
+    if (propsRes.status === "fulfilled") setProperties(propsRes.value.data || []);
+    if (dbRes.status === "fulfilled") setDbLeadsTotal(Number(dbRes.value.total) || 0);
+    if (dealsRes.status === "fulfilled") setDealsTotal(Number(dealsRes.value.total) || 0);
+    if (statusRes.status === "fulfilled") setApiStatuses(statusRes.value);
     setInitialLoading(false);
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  };
+  const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const getStatusColor = (name: string) =>
+    apiStatuses.find((s) => s.name.trim() === name?.trim())?.color ?? "#64748b";
 
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString();
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "out of stock":
-        return "#ef4444";
-      case "under construction":
-        return "#f59e0b";
-      case "ready":
-        return "#10b981";
-      case "available":
-        return "#10b981";
-      case "sold":
-        return "#ef4444";
-      case "reserved":
-        return "#f59e0b";
-      default:
-        return "#6366f1";
-    }
+  const formatDate = (d: string) => {
+    const date = new Date(d);
+    const diff = Math.ceil(Math.abs(Date.now() - date.getTime()) / 86400000);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Yesterday";
+    if (diff < 7) return `${diff}d ago`;
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   };
 
   const formatPrice = (price: string) => {
-    const numPrice = parseFloat(price);
-    return `AED ${numPrice.toLocaleString()}`;
+    const n = parseFloat(price);
+    if (!price || isNaN(n) || n === 0) return "Price on Request";
+    return `AED ${n.toLocaleString()}`;
   };
 
-  const getPropertyTypeIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case "apartment":
-        return "business-outline";
-      case "villa":
-        return "home-outline";
-      case "townhouse":
-        return "home-outline";
-      default:
-        return "location-outline";
-    }
+  const getPropStatusColor = (s: string) => {
+    const l = s?.toLowerCase();
+    if (l === "available" || l === "ready" || l === "completed") return "#10b981";
+    if (l === "sold" || l === "out of stock") return "#ef4444";
+    if (l === "reserved" || l === "under construction") return "#f59e0b";
+    return "#6366f1";
   };
 
-  // Show loading spinner only during the initial fetch — not if data simply comes back empty
+  const todayStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
   if (initialLoading) {
     return (
       <View style={styles.center}>
-        <View style={styles.loaderContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+        <View style={styles.loadingIcon}>
+          <Ionicons name="home" size={30} color="#6366f1" />
         </View>
+        <Text style={styles.loadingText}>Loading dashboard…</Text>
       </View>
     );
   }
+
+  const STATS = [
+    { label: "Leads", value: leads.length, icon: "people" as const, color: "#6366f1", bg: "#eef2ff", route: "/leads-list" },
+    { label: "DB Leads", value: dbLeadsTotal, icon: "server" as const, color: "#8b5cf6", bg: "#f5f3ff", route: "/db-leads-list" },
+    { label: "Deals", value: dealsTotal, icon: "briefcase" as const, color: "#10b981", bg: "#f0fdf4", route: "/deals-list" },
+  ];
+
+  const QUICK = [
+    { label: "Todos", icon: "checkmark-done" as const, color: "#f59e0b", bg: "#fffbeb", route: "/todos-list" },
+    { label: "Calendar", icon: "calendar" as const, color: "#6366f1", bg: "#eef2ff", route: "/todos-list" },
+    { label: "Properties", icon: "business" as const, color: "#06b6d4", bg: "#ecfeff", route: "/properties-list" },
+    { label: "Profile", icon: "person-circle" as const, color: "#3b82f6", bg: "#eff6ff", route: "/profile" },
+  ];
 
   return (
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor="#6366f1"
-        />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hello there! 👋</Text>
-          <Text style={styles.subGreeting}>Welcome back to Lead Manager</Text>
+      {/* ─────── HERO ─────── */}
+      <View style={styles.hero}>
+        {/* decorative circles */}
+        <View style={styles.deco1} />
+        <View style={styles.deco2} />
+        <View style={styles.deco3} />
+
+        {/* top bar */}
+        <View style={styles.heroBar}>
+          <View style={styles.heroBarLeft}>
+            <Text style={styles.heroDate}>{todayStr}</Text>
+            <Text style={styles.heroGreet}>Hello there 👋</Text>
+          </View>
+          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push("/profile")}>
+            <Ionicons name="person" size={20} color="#6366f1" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.profileButton}
-          onPress={() => router.push("/profile")}
-        >
-          <Ionicons name="person-circle-outline" size={44} color="#6366f1" />
-        </TouchableOpacity>
+
+        <Text style={styles.heroSub}>Welcome back to Lead Manager</Text>
       </View>
 
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{leads.length}</Text>
-          <Text style={styles.statLabel}>Total Leads</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {
-              leads.filter(
-                (l) =>
-                  new Date(l.dateadded).getTime() >
-                  Date.now() - 7 * 24 * 60 * 60 * 1000,
-              ).length
-            }
-          </Text>
-          <Text style={styles.statLabel}>This Week</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {leads.filter((l) => l.status === "5").length}
-          </Text>
-          <Text style={styles.statLabel}>Active</Text>
-        </View>
-      </View>
-
-      {/* Latest Lead Highlight - Only show if latestLead exists */}
-      {latestLead && (
-        <View style={styles.latestCard}>
-          <View style={styles.latestBadge}>
-            <Ionicons name="flash" size={16} color="#fff" />
-            <Text style={styles.latestBadgeText}>NEW LEAD</Text>
-          </View>
-
-          <Text style={styles.latestName}>{latestLead.name}</Text>
-
-          <View style={styles.latestCompanyContainer}>
-            <Ionicons name="business-outline" size={16} color="#a5b4fc" />
-            <Text style={styles.latestCompany}>
-              {latestLead.company || "No Company"}
-            </Text>
-          </View>
-
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <Ionicons name="mail-outline" size={18} color="#c7d2fe" />
-              <Text style={styles.infoText}>{latestLead.email}</Text>
+      {/* ─────── STAT CARDS (float below hero) ─────── */}
+      <View style={styles.statsRow}>
+        {STATS.map((s) => (
+          <TouchableOpacity key={s.label} style={styles.statCard} onPress={() => router.push(s.route as any)} activeOpacity={0.78}>
+            <View style={[styles.statIconWrap, { backgroundColor: s.bg }]}>
+              <Ionicons name={s.icon} size={16} color={s.color} />
             </View>
-            {latestLead.phonenumber && (
-              <View style={styles.infoItem}>
-                <Ionicons name="call-outline" size={18} color="#c7d2fe" />
-                <Text style={styles.infoText}>{latestLead.phonenumber}</Text>
+            <Text style={[styles.statNum, { color: s.color }]}>{String(s.value)}</Text>
+            <Text style={styles.statLbl}>{s.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ─────── QUICK ACCESS ─────── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Quick Access</Text>
+        <View style={styles.quickGrid}>
+          {QUICK.map((q) => (
+            <TouchableOpacity key={q.label} style={styles.quickCard} onPress={() => router.push(q.route as any)} activeOpacity={0.75}>
+              <View style={[styles.quickIcon, { backgroundColor: q.bg }]}>
+                <Ionicons name={q.icon} size={22} color={q.color} />
               </View>
-            )}
-            <View style={styles.infoItem}>
-              <Ionicons name="calendar-outline" size={18} color="#c7d2fe" />
-              <Text style={styles.infoText}>
-                Added {formatDate(latestLead.dateadded)}
-              </Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Ionicons name="globe-outline" size={18} color="#c7d2fe" />
-              <Text style={styles.infoText}>
-                {latestLead.source_name || "Unknown Source"}
-              </Text>
-            </View>
-          </View>
+              <Text style={[styles.quickLabel, { color: q.color }]}>{q.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
+      {/* ─────── LATEST LEAD ─────── */}
+      {latestLead && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Latest Lead</Text>
           <TouchableOpacity
-            style={styles.viewLeadButton}
-            onPress={() =>
-              router.push({
-                pathname: "/lead-detail",
-                params: { lead: JSON.stringify(latestLead) },
-              })
-            }
+            style={styles.latestCard}
+            activeOpacity={0.88}
+            onPress={() => router.push({ pathname: "/lead-detail", params: { lead: JSON.stringify(latestLead) } })}
           >
-            <Text style={styles.viewLeadButtonText}>View Full Details</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
+            {/* coloured accent bar */}
+            <View style={[styles.latestAccent, { backgroundColor: avatarBg(latestLead.name) }]} />
+
+            <View style={styles.latestInner}>
+              {/* avatar */}
+              <View style={[styles.latestAvatar, { backgroundColor: avatarBg(latestLead.name) }]}>
+                <Text style={styles.latestAvatarText}>{latestLead.name?.charAt(0)?.toUpperCase()}</Text>
+              </View>
+
+              {/* info */}
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                  <Text style={styles.latestName} numberOfLines={1}>{latestLead.name}</Text>
+                  <View style={styles.newBadge}>
+                    <Ionicons name="flash" size={9} color="#fff" />
+                    <Text style={styles.newBadgeText}>NEW</Text>
+                  </View>
+                </View>
+                <Text style={styles.latestCompany} numberOfLines={1}>
+                  {latestLead.company || latestLead.email || "No company"}
+                </Text>
+                <View style={styles.latestMeta}>
+                  {latestLead.source_name ? (
+                    <View style={styles.srcBadge}>
+                      <Ionicons name="flash-outline" size={10} color="#6366f1" />
+                      <Text style={styles.srcBadgeText}>{latestLead.source_name}</Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.latestTimeBadge}>
+                    <Ionicons name="time-outline" size={10} color="#94a3b8" />
+                    <Text style={styles.latestTimeText}>{formatDate(latestLead.dateadded)}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* call + wa buttons */}
+              {latestLead.phonenumber ? (
+                <View style={{ gap: 8 }}>
+                  <TouchableOpacity
+                    style={styles.iconBtnCall}
+                    onPress={(e) => { e.stopPropagation(); Linking.openURL(`tel:${latestLead.phonenumber.replace(/\D/g,"")}`).catch(()=>{}); }}
+                  >
+                    <Ionicons name="call" size={14} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.iconBtnWa}
+                    onPress={(e) => { e.stopPropagation(); Linking.openURL(`https://wa.me/${latestLead.phonenumber.replace(/\D/g,"")}`).catch(()=>{}); }}
+                  >
+                    <Ionicons name="logo-whatsapp" size={14} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color="#c7d2fe" />
+              )}
+            </View>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Featured Projects Section - Off-Plan */}
-      {/* <View style={styles.projectsSection}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>Global Off-Plan</Text>
-            <Text style={styles.sectionSubtitle}>
-              Discover luxury off-plan properties
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => router.push("/projects-list")}>
-            <Text style={styles.seeAllText}>See All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {featuredProjects.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.projectsScroll}
-            contentContainerStyle={styles.projectsScrollContent}
-          >
-            {featuredProjects.map((project) => {
-              let priceText = "";
-              if (project.min_price_aed && project.max_price_aed) {
-                priceText =
-                  project.min_price_aed === project.max_price_aed
-                    ? `AED ${project.min_price_aed.toLocaleString()}`
-                    : `AED ${project.min_price_aed.toLocaleString()} – ${project.max_price_aed.toLocaleString()}`;
-              } else if (project.min_price_aed) {
-                priceText = `AED ${project.min_price_aed.toLocaleString()}`;
-              } else if (project.max_price_aed) {
-                priceText = `AED ${project.max_price_aed.toLocaleString()}`;
-              }
-
-              return (
-                <TouchableOpacity
-                  key={project._id}
-                  style={styles.projectCard}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/project-detail",
-                      params: { projectId: project.id ?? project._id },
-                    })
-                  }
-                >
-                  <Image
-                    source={{
-                      uri: project.s3_cover_url || project.cover_image_url?.url,
-                    }}
-                    style={styles.projectImage}
-                  />
-                  <View style={styles.projectOverlay}>
-                    <View style={styles.projectDeveloper}>
-                      {project.developer_data?.logo_image?.[0] && (
-                        <Image
-                          source={{
-                            uri: project.developer_data.logo_image[0].url,
-                          }}
-                          style={styles.developerLogo}
-                        />
-                      )}
-                      <Text style={styles.developerName}>
-                        {project.developer}
-                      </Text>
-                    </View>
-                    <Text style={styles.projectName}>{project.name}</Text>
-                    <View style={styles.projectLocation}>
-                      <Ionicons
-                        name="location-outline"
-                        size={14}
-                        color="#fff"
-                      />
-                      <Text style={styles.projectArea}>
-                        {project.area}, {project.country}
-                      </Text>
-                    </View>
-                    {priceText !== "" && (
-                      <Text style={styles.projectPrice}>{priceText}</Text>
-                    )}
-                    <View
-                      style={[
-                        styles.projectStatus,
-                        {
-                          backgroundColor: getStatusColor(project.sale_status),
-                        },
-                      ]}
-                    >
-                      <Text style={styles.projectStatusText}>
-                        {project.sale_status}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        ) : (
-          <View style={styles.emptyPropertiesContainer}>
-            <Ionicons name="business-outline" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyPropertiesText}>
-              No off-plan projects available
-            </Text>
-          </View>
-        )}
-      </View> */}
-
-      {/* Secondary Properties Section */}
-      <View style={styles.propertiesSection}>
-        <View style={styles.sectionHeader}>
-          <View>
+      {/* ─────── PROPERTIES ─────── */}
+      {properties.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>Properties</Text>
-            <Text style={styles.sectionSubtitle}>
-              Ready to move-in properties
-            </Text>
+            <TouchableOpacity onPress={() => router.push("/properties-list" as any)}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={() => router.push("/properties-list?tab=Secondary")}
-          >
-            <Text style={styles.seeAllText}>See All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {secondaryProperties.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.propertiesScroll}
-            contentContainerStyle={styles.propertiesScrollContent}
-          >
-            {secondaryProperties.map((property) => (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
+            {properties.map((p) => (
               <TouchableOpacity
-                key={property.id}
-                style={styles.propertyCard}
-                onPress={() =>
-                  router.push({
-                    pathname: "/property-detail",
-                    params: { propertyId: property.id },
-                  })
-                }
+                key={p.id}
+                style={styles.propCard}
+                onPress={() => router.push({ pathname: "/property-detail", params: { propertyId: p.id } })}
+                activeOpacity={0.88}
               >
-                <Image
-                  source={{ uri: property.thumbnail }}
-                  style={styles.propertyImage}
-                />
-                <View style={styles.propertyOverlay}>
-                  <View style={styles.propertyHeader}>
-                    <View style={styles.propertyDeveloper}>
-                      <Ionicons
-                        name="business-outline"
-                        size={14}
-                        color="#6366f1"
-                      />
-                      <Text style={styles.propertyDeveloperName}>
-                        {property.developer}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.propertyStatus,
-                        {
-                          backgroundColor: getStatusColor(
-                            property.property_status,
-                          ),
-                        },
-                      ]}
-                    >
-                      <Text style={styles.propertyStatusText}>
-                        {property.property_status}
-                      </Text>
-                    </View>
+                <Image source={{ uri: p.thumbnail }} style={styles.propImage} />
+                {/* gradient-like overlay */}
+                <View style={styles.propOverlay} />
+                <View style={[styles.propBadge, { backgroundColor: getPropStatusColor(p.property_status) }]}>
+                  <Text style={styles.propBadgeText}>{p.property_status}</Text>
+                </View>
+                <View style={styles.propInfo}>
+                  <Text style={styles.propName} numberOfLines={1}>{p.project_name}</Text>
+                  <View style={styles.propLocRow}>
+                    <Ionicons name="location-outline" size={11} color="#94a3b8" />
+                    <Text style={styles.propLoc} numberOfLines={1}>{p.location || p.bayut_location_name || "Dubai"}</Text>
                   </View>
-
-                  <Text style={styles.propertyName} numberOfLines={1}>
-                    {property.project_name}
-                  </Text>
-
-                  <View style={styles.propertyLocation}>
-                    <Ionicons
-                      name="location-outline"
-                      size={12}
-                      color="#64748b"
-                    />
-                    <Text style={styles.propertyArea} numberOfLines={1}>
-                      {property.location ||
-                        property.bayut_location_name ||
-                        "Dubai"}
-                    </Text>
-                  </View>
-
-                  <View style={styles.propertySpecs}>
-                    <View style={styles.propertySpec}>
-                      <Ionicons
-                        name={getPropertyTypeIcon(property.property_type ?? "")}
-                        size={12}
-                        color="#64748b"
-                      />
-                      <Text style={styles.propertySpecText}>
-                        {property.property_type || property.unit_type}
-                      </Text>
-                    </View>
-                    <View style={styles.propertySpec}>
-                      <Ionicons name="bed-outline" size={12} color="#64748b" />
-                      <Text style={styles.propertySpecText}>
-                        {property.bedrooms} Beds
-                      </Text>
-                    </View>
-                    <View style={styles.propertySpec}>
-                      <Ionicons
-                        name="water-outline"
-                        size={12}
-                        color="#64748b"
-                      />
-                      <Text style={styles.propertySpecText}>
-                        {property.bathrooms} Baths
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.propertyFooter}>
-                    <Text style={styles.propertyPrice}>
-                      {formatPrice(property.price)}
-                    </Text>
-                    <View style={styles.furnishingBadge}>
-                      <Text style={styles.furnishingText}>
-                        {property.furnishing}
-                      </Text>
-                    </View>
+                  <View style={styles.propFooter}>
+                    <Text style={styles.propPrice} numberOfLines={1}>{formatPrice(p.price)}</Text>
+                    {p.bedrooms ? (
+                      <View style={styles.bedBadge}>
+                        <Ionicons name="bed-outline" size={10} color="#6366f1" />
+                        <Text style={styles.bedText}>{p.bedrooms} Bed</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
-        ) : (
-          <View style={styles.emptyPropertiesContainer}>
-            <Ionicons name="business-outline" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyPropertiesText}>
-              No properties available
-            </Text>
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
-      {/* Recent Leads Section */}
-      <View style={styles.recentSection}>
-        <View style={styles.sectionHeader}>
+      {/* ─────── RECENT LEADS ─────── */}
+      <View style={[styles.section, { marginBottom: 100 }]}>
+        <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>Recent Leads</Text>
-          <TouchableOpacity onPress={() => router.push("/leads-list")}>
-            <Text style={styles.seeAllText}>See All</Text>
+          <TouchableOpacity onPress={() => router.push("/leads-list" as any)}>
+            <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
 
-        {recentLeads.length > 0 ? (
-          recentLeads.map((lead, index) => (
+        {recentLeads.length > 0 ? recentLeads.map((lead) => {
+          const color = avatarBg(lead.name ?? "");
+          const statusColor = getStatusColor(lead.status_name);
+          const hasPhone = !!lead.phonenumber;
+          return (
             <TouchableOpacity
               key={lead.id}
-              style={styles.recentLeadCard}
-              onPress={() =>
-                router.push({
-                  pathname: "/lead-detail",
-                  params: { lead: JSON.stringify(lead) },
-                })
-              }
+              style={styles.leadCard}
+              onPress={() => router.push({ pathname: "/lead-detail", params: { lead: JSON.stringify(lead) } })}
+              activeOpacity={0.72}
             >
-              <View style={styles.recentLeadAvatar}>
-                <Text style={styles.avatarText}>{lead.name.charAt(0)}</Text>
+              {/* top */}
+              <View style={styles.cardTop}>
+                <View style={[styles.avatar, { backgroundColor: color + "22" }]}>
+                  <Text style={[styles.avatarLetter, { color }]}>{lead.name?.charAt(0)?.toUpperCase() ?? "?"}</Text>
+                </View>
+                <View style={styles.cardMeta}>
+                  <Text style={styles.leadName} numberOfLines={1}>{lead.name}</Text>
+                  {hasPhone ? (
+                    <View style={styles.phoneRow}>
+                      <Ionicons name="call-outline" size={11} color="#94a3b8" />
+                      <Text style={styles.phoneText}>{lead.phonenumber}</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.phoneText}>{lead.email || formatDate(lead.dateadded)}</Text>
+                  )}
+                </View>
+                {hasPhone ? (
+                  <View style={styles.actionIcons}>
+                    <TouchableOpacity
+                      style={styles.iconBtnCall}
+                      onPress={(e) => { e.stopPropagation(); Linking.openURL(`tel:${lead.phonenumber.replace(/\D/g,"")}`).catch(()=>{}); }}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="call" size={14} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.iconBtnWa}
+                      onPress={(e) => { e.stopPropagation(); Linking.openURL(`https://wa.me/${lead.phonenumber.replace(/\D/g,"")}`).catch(()=>{}); }}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="logo-whatsapp" size={14} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text style={styles.leadTime}>{formatDate(lead.dateadded)}</Text>
+                )}
               </View>
-              <View style={styles.recentLeadInfo}>
-                <Text style={styles.recentLeadName}>{lead.name}</Text>
-                <Text style={styles.recentLeadCompany}>
-                  {lead.company || "No Company"}
-                </Text>
-              </View>
-              <View style={styles.recentLeadMeta}>
-                <Text style={styles.recentLeadTime}>
-                  {formatDate(lead.dateadded)}
-                </Text>
-                <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+
+              {/* divider */}
+              <View style={styles.cardDivider} />
+
+              {/* bottom */}
+              <View style={styles.cardBottom}>
+                <View style={styles.sourceBadge}>
+                  <Ionicons name="flash-outline" size={11} color="#6366f1" />
+                  <Text style={styles.sourcePrefix}>Source: </Text>
+                  <Text style={styles.sourceText} numberOfLines={1}>{lead.source_name || "Direct"}</Text>
+                </View>
+                <View style={[styles.statusPill, { backgroundColor: statusColor + "18" }]}>
+                  <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                  <Text style={[styles.statusLabel, { color: statusColor }]} numberOfLines={1}>
+                    {lead.status_name || "New"}
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
-          ))
-        ) : (
-          <View style={styles.emptyPropertiesContainer}>
-            <Ionicons name="people-outline" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyPropertiesText}>No recent leads</Text>
+          );
+        }) : (
+          <View style={styles.emptyBox}>
+            <Ionicons name="people-outline" size={44} color="#cbd5e1" />
+            <Text style={styles.emptyText}>No recent leads</Text>
           </View>
         )}
       </View>
 
-      {/* Bottom Navigation */}
+      {/* ─────── BOTTOM NAV ─────── */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color="#6366f1" />
-          <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
+          <View style={styles.navActiveBar} />
+          <Ionicons name="home" size={22} color="#6366f1" />
+          <Text style={[styles.navText, { color: "#6366f1", fontWeight: "700" }]}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/leads-list")}
-        >
-          <Ionicons name="people" size={24} color="#94a3b8" />
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/leads-list" as any)}>
+          <Ionicons name="people-outline" size={22} color="#94a3b8" />
           <Text style={styles.navText}>Leads</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/properties-list")}
-        >
-          <Ionicons name="business" size={24} color="#94a3b8" />
-          <Text style={styles.navText}>Projects</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/properties-list" as any)}>
+          <Ionicons name="business-outline" size={22} color="#94a3b8" />
+          <Text style={styles.navText}>Properties</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/profile")}
-        >
-          <Ionicons name="settings" size={24} color="#94a3b8" />
-          <Text style={styles.navText}>Settings</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/profile" as any)}>
+          <Ionicons name="person-outline" size={22} color="#94a3b8" />
+          <Text style={styles.navText}>Profile</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -575,462 +391,241 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  projectPrice: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
-    marginTop: 4,
+  container: { flex: 1, backgroundColor: "#f1f5f9" },
+
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f1f5f9" },
+  loadingIcon: {
+    width: 64, height: 64, borderRadius: 20,
+    backgroundColor: "#eef2ff", justifyContent: "center", alignItems: "center", marginBottom: 12,
   },
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
+  loadingText: { fontSize: 14, color: "#64748b" },
+
+  // ── Hero ──
+  hero: {
+    backgroundColor: "#4f46e5",
+    paddingTop: 58,
+    paddingHorizontal: 22,
+    paddingBottom: 48,
+    overflow: "hidden",
   },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f8fafc",
+  deco1: {
+    position: "absolute", width: 260, height: 260, borderRadius: 130,
+    backgroundColor: "rgba(255,255,255,0.06)", top: -90, right: -60,
   },
-  loaderContainer: {
-    padding: 20,
+  deco2: {
+    position: "absolute", width: 150, height: 150, borderRadius: 75,
+    backgroundColor: "rgba(255,255,255,0.06)", top: 20, right: 70,
   },
-  loadingText: {
-    fontSize: 16,
-    color: "#64748b",
+  deco3: {
+    position: "absolute", width: 100, height: 100, borderRadius: 50,
+    backgroundColor: "rgba(255,255,255,0.05)", bottom: -20, left: -10,
   },
-  header: {
+  heroBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 },
+  heroBarLeft: { flex: 1 },
+  heroDate: { fontSize: 11, color: "rgba(255,255,255,0.55)", fontWeight: "500", letterSpacing: 0.4, marginBottom: 6 },
+  heroGreet: { fontSize: 28, fontWeight: "800", color: "#fff", letterSpacing: -0.3 },
+  heroSub: { fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 2 },
+  profileBtn: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: "#fff",
+    justifyContent: "center", alignItems: "center",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 4,
+  },
+
+  // ── Stat cards (float up over hero) ──
+  statsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 24,
-    backgroundColor: "#fff",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1e293b",
-  },
-  subGreeting: {
-    fontSize: 14,
-    color: "#64748b",
-    marginTop: 4,
-  },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#f1f5f9",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    marginTop: -20,
-    gap: 12,
+    marginHorizontal: 16,
+    marginTop: -30,
+    gap: 10,
+    marginBottom: 4,
   },
   statCard: {
     flex: 1,
     backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#6366f1",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#64748b",
-    fontWeight: "500",
-  },
-  latestCard: {
-    backgroundColor: "#6366f1",
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: "#6366f1",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  latestBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignSelf: "flex-start",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 16,
-    gap: 6,
-  },
-  latestBadgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  latestName: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#fff",
-    marginBottom: 8,
-  },
-  latestCompanyContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 20,
-  },
-  latestCompany: {
-    fontSize: 16,
-    color: "#a5b4fc",
-  },
-  infoGrid: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  infoText: {
-    fontSize: 14,
-    color: "#c7d2fe",
-  },
-  viewLeadButton: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 18,
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    flexDirection: "row",
+    paddingHorizontal: 6,
     alignItems: "center",
-    justifyContent: "space-between",
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 6,
   },
-  viewLeadButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    // color: "#6366f1",
-    color: "#0F172A",
+  statIconWrap: {
+    width: 34, height: 34, borderRadius: 10,
+    justifyContent: "center", alignItems: "center", marginBottom: 8,
   },
-  projectsSection: {
-    marginTop: 32,
-    marginBottom: 24,
-  },
-  propertiesSection: {
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  statNum: { fontSize: 20, fontWeight: "800", marginBottom: 2 },
+  statLbl: { fontSize: 10, color: "#94a3b8", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 },
+
+  // ── Sections ──
+  section: { marginTop: 24, paddingHorizontal: 16 },
+  sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+  sectionTitle: { fontSize: 17, fontWeight: "700", color: "#0f172a", marginBottom: 14 },
+  seeAll: { fontSize: 13, color: "#6366f1", fontWeight: "600" },
+
+  // ── Quick access (full-width grid) ──
+  // 4 cards, 16px padding each side, 3 gaps of 8px = (SCREEN_W - 32 - 24) / 4
+  quickGrid: { flexDirection: "row", gap: 8 },
+  quickCard: {
+    width: (SCREEN_W - 32 - 24) / 4,
     alignItems: "center",
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1e293b",
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: "#64748b",
-    marginTop: 2,
-  },
-  seeAllText: {
-    fontSize: 14,
-    color: "#6366f1",
-    fontWeight: "500",
-  },
-  projectsScroll: {
-    paddingLeft: 20,
-  },
-  projectsScrollContent: {
-    paddingRight: 20,
-    gap: 16,
-  },
-  propertiesScroll: {
-    paddingLeft: 20,
-  },
-  propertiesScrollContent: {
-    paddingRight: 20,
-    gap: 16,
-  },
-  projectCard: {
-    width: 280,
-    borderRadius: 16,
-    overflow: "hidden",
     backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  projectImage: {
-    width: "100%",
-    height: 180,
-    resizeMode: "cover",
-  },
-  projectOverlay: {
-    padding: 12,
-  },
-  projectDeveloper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  developerLogo: {
-    width: 20,
-    height: 20,
-    resizeMode: "contain",
-  },
-  developerName: {
-    fontSize: 12,
-    color: "#6366f1",
-    fontWeight: "500",
-  },
-  projectName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1e293b",
-    marginBottom: 6,
-  },
-  projectLocation: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 8,
-  },
-  projectArea: {
-    fontSize: 12,
-    color: "#64748b",
-  },
-  projectStatus: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  projectStatusText: {
-    fontSize: 10,
-    color: "#fff",
-    fontWeight: "600",
-  },
-  propertyCard: {
-    width: 280,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  propertyImage: {
-    width: "100%",
-    height: 160,
-    resizeMode: "cover",
-  },
-  propertyOverlay: {
-    padding: 12,
-  },
-  propertyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  propertyDeveloper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  propertyDeveloperName: {
-    fontSize: 11,
-    color: "#6366f1",
-    fontWeight: "500",
-  },
-  propertyStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  propertyStatusText: {
-    fontSize: 10,
-    color: "#fff",
-    fontWeight: "600",
-  },
-  propertyName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1e293b",
-    marginBottom: 6,
-  },
-  propertyLocation: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 8,
-  },
-  propertyArea: {
-    fontSize: 11,
-    color: "#64748b",
-    flex: 1,
-  },
-  propertySpecs: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 12,
-  },
-  propertySpec: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  propertySpecText: {
-    fontSize: 11,
-    color: "#64748b",
-  },
-  propertyFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  propertyPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#1e293b",
-  },
-  furnishingBadge: {
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  furnishingText: {
-    fontSize: 10,
-    color: "#64748b",
-    fontWeight: "500",
-  },
-  emptyPropertiesContainer: {
-    marginHorizontal: 20,
-    paddingVertical: 40,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyPropertiesText: {
-    fontSize: 14,
-    color: "#94a3b8",
-    marginTop: 12,
-  },
-  recentSection: {
-    paddingHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 100,
-  },
-  recentLeadCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 5,
     elevation: 2,
   },
-  recentLeadAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#e0e7ff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
+  quickIcon: {
+    width: 46, height: 46, borderRadius: 14,
+    justifyContent: "center", alignItems: "center", marginBottom: 8,
   },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#6366f1",
+  quickLabel: { fontSize: 11, fontWeight: "700" },
+
+  // ── Properties ──
+  propCard: {
+    width: SCREEN_W * 0.52,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  recentLeadInfo: {
-    flex: 1,
+  propImage: { width: "100%", height: 126, resizeMode: "cover" },
+  propOverlay: {
+    position: "absolute", top: 0, left: 0, right: 0, height: 126,
+    backgroundColor: "rgba(0,0,0,0.08)",
   },
-  recentLeadName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1e293b",
-    marginBottom: 4,
+  propBadge: {
+    position: "absolute", top: 10, left: 10,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
   },
-  recentLeadCompany: {
-    fontSize: 13,
-    color: "#64748b",
+  propBadgeText: { fontSize: 10, color: "#fff", fontWeight: "700" },
+  propInfo: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
+  propName: { fontSize: 13, fontWeight: "700", color: "#0f172a", marginBottom: 4 },
+  propLocRow: { flexDirection: "row", alignItems: "center", gap: 3, marginBottom: 8 },
+  propLoc: { fontSize: 11, color: "#94a3b8", flex: 1 },
+  propFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4 },
+  propPrice: { fontSize: 11, fontWeight: "700", color: "#0f172a", flex: 1, flexShrink: 1 },
+  bedBadge: {
+    flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 0,
+    backgroundColor: "#eef2ff", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7,
   },
-  recentLeadMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  bedText: { fontSize: 10, color: "#6366f1", fontWeight: "600" },
+
+  // ── Lead cards ──
+  leadCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
+    shadowColor: "#64748b",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  recentLeadTime: {
-    fontSize: 12,
-    color: "#94a3b8",
+  cardTop: { flexDirection: "row", alignItems: "center" },
+  avatar: {
+    width: 42, height: 42, borderRadius: 12,
+    justifyContent: "center", alignItems: "center", marginRight: 10,
   },
+  avatarLetter: { fontSize: 18, fontWeight: "700" },
+  cardMeta: { flex: 1, marginRight: 8 },
+  leadName: { fontSize: 14, fontWeight: "700", color: "#0f172a", marginBottom: 2 },
+  phoneRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+  phoneText: { fontSize: 12, color: "#64748b" },
+  leadTime: { fontSize: 11, color: "#94a3b8" },
+  actionIcons: { flexDirection: "row", gap: 6 },
+  iconBtnCall: {
+    width: 30, height: 30, borderRadius: 9, backgroundColor: "#2563eb",
+    justifyContent: "center", alignItems: "center",
+    shadowColor: "#2563eb", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 2,
+  },
+  iconBtnWa: {
+    width: 30, height: 30, borderRadius: 9, backgroundColor: "#25D366",
+    justifyContent: "center", alignItems: "center",
+    shadowColor: "#25D366", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 2,
+  },
+  cardDivider: { height: 1, backgroundColor: "#f1f5f9", marginVertical: 8 },
+  cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sourceBadge: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1 },
+  sourcePrefix: { fontSize: 11, color: "#94a3b8", fontWeight: "500" },
+  sourceText: { fontSize: 11, color: "#6366f1", fontWeight: "600" },
+  statusPill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, maxWidth: 120,
+  },
+  statusDot: { width: 5, height: 5, borderRadius: 3 },
+  statusLabel: { fontSize: 10, fontWeight: "600" },
+
+  // ── Empty ──
+  emptyBox: { paddingVertical: 36, alignItems: "center" },
+  emptyText: { fontSize: 14, color: "#94a3b8", marginTop: 10 },
+
+  // ── Bottom nav ──
   bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    position: "absolute", bottom: 0, left: 0, right: 0,
     flexDirection: "row",
     backgroundColor: "#fff",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    paddingTop: 10, paddingBottom: 28, paddingHorizontal: 8,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 12,
   },
-  navItem: {
-    flex: 1,
-    alignItems: "center",
-    gap: 4,
+  navItem: { flex: 1, alignItems: "center", gap: 3, position: "relative" },
+  navActiveBar: {
+    position: "absolute", top: -10,
+    width: 28, height: 3, borderRadius: 2, backgroundColor: "#6366f1",
   },
-  navText: {
-    fontSize: 12,
-    color: "#94a3b8",
+  navText: { fontSize: 11, color: "#94a3b8", fontWeight: "500" },
+
+  // ── Latest Lead card ──
+  latestCard: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    overflow: "hidden",
+    shadowColor: "#6366f1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  navTextActive: {
-    color: "#6366f1",
-    fontWeight: "500",
+  latestAccent: { height: 4, width: "100%" },
+  latestInner: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 },
+  latestAvatar: {
+    width: 50, height: 50, borderRadius: 15,
+    justifyContent: "center", alignItems: "center",
   },
+  latestAvatarText: { fontSize: 21, fontWeight: "800", color: "#fff" },
+  newBadge: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: "#6366f1", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20,
+  },
+  newBadgeText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.3 },
+  srcBadge: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: "#eef2ff", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20,
+  },
+  srcBadgeText: { fontSize: 10, fontWeight: "600", color: "#6366f1" },
+  latestName: { fontSize: 15, fontWeight: "700", color: "#0f172a", flex: 1 },
+  latestCompany: { fontSize: 12, color: "#64748b", marginBottom: 7 },
+  latestMeta: { flexDirection: "row", gap: 6, alignItems: "center" },
+  latestTimeBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
+  latestTimeText: { fontSize: 11, color: "#94a3b8", fontWeight: "500" },
+  metaChip: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "#eef2ff", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10,
+  },
+  metaChipText: { fontSize: 11, color: "#6366f1", fontWeight: "500" },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,10 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Lead } from './types';
+import { LeadStatus, fetchLeadStatuses, fetchLeadById } from './utils/api';
 import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from './utils/config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -189,7 +190,7 @@ const spinnerStyles = StyleSheet.create({
 export default function LeadDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const lead: Lead = JSON.parse(params.lead as string);
+  const [lead, setLead] = useState<Lead>(JSON.parse(params.lead as string));
 
   const [activeTab, setActiveTab] = useState<Tab>('details');
 
@@ -248,6 +249,23 @@ export default function LeadDetailScreen() {
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [activityText, setActivityText] = useState('');
   const [activitySaving, setActivitySaving] = useState(false);
+
+  // ── Status colors ─────────────────────────────────────────────────────────
+  const [apiStatuses, setApiStatuses] = useState<LeadStatus[]>([]);
+
+  useEffect(() => {
+    fetchLeadStatuses().then(setApiStatuses);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (lead.id) {
+        fetchLeadById(String(lead.id)).then((fresh) => {
+          if (fresh) setLead(fresh);
+        });
+      }
+    }, [lead.id]),
+  );
 
   useEffect(() => {
     if (activeTab === 'notes' && !notesFetched) loadNotes();
@@ -515,11 +533,15 @@ export default function LeadDetailScreen() {
 
           <Text style={styles.heroName}>{lead.name}</Text>
 
-          {lead.status_name ? (
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>{lead.status_name}</Text>
-            </View>
-          ) : null}
+          {lead.status_name ? (() => {
+            const sc = apiStatuses.find(s => s.name.trim() === lead.status_name?.trim())?.color ?? '#6366f1';
+            return (
+              <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: sc, marginRight: 6 }} />
+                <Text style={styles.heroBadgeText}>{lead.status_name}</Text>
+              </View>
+            );
+          })() : null}
 
           <Text style={styles.heroSub}>
             {lead.source_name || lead.title || 'Lead'}
@@ -625,6 +647,24 @@ export default function LeadDetailScreen() {
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>SOURCE</Text>
                 <Text style={styles.infoValue}>{lead.source_name || 'Website Form'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Ionicons name="pulse-outline" size={22} color="#6366f1" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>STATUS</Text>
+                {(() => {
+                  const sc = apiStatuses.find(s => s.name.trim() === lead.status_name?.trim())?.color ?? '#64748b';
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sc }} />
+                      <Text style={[styles.infoValue, { color: sc }]}>{lead.status_name || '—'}</Text>
+                    </View>
+                  );
+                })()}
               </View>
             </View>
 
@@ -1148,14 +1188,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   heroBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: 20,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   heroBadgeText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: '#fff',
   },

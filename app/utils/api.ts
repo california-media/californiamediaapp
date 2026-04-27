@@ -1,5 +1,76 @@
 // app/utils/api.ts
-import { LeadsResponse } from "../types";
+import { DbLeadsResponse, DealsResponse, LeadsResponse } from "../types";
+
+export interface LeadSource { id: number; name: string; }
+export interface LeadStatus { id: number; name: string; color: string; statusorder: number; }
+
+const buildAuthHeaders = () => ({
+  Authorization: getAuthToken(),
+  Cookie: getCrmCookie(),
+  "X-User-Id": getUserId(),
+  Accept: "application/json",
+});
+
+export const fetchLeadSources = async (): Promise<LeadSource[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/lead_sources`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const fetchLeadStatuses = async (): Promise<LeadStatus[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/lead_statuses`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const fetchTodos = async (): Promise<any[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/todos/listing?page=0`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.data ?? [];
+  } catch { return []; }
+};
+
+export const fetchDealById = async (id: string | number): Promise<any | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/deals/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+};
+
+export const fetchDbLeadById = async (id: string | number): Promise<any | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/db_leads/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+};
+
+export const fetchDbLeadSources = async (): Promise<LeadSource[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/db_lead_sources`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const fetchDbLeadStatuses = async (): Promise<LeadStatus[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/db_lead_statuses`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
 import { getCrmApiUrl, getAuthToken, getCrmCookie, getUserId } from "./config";
 
 export const fetchAllLeads = async (params?: {
@@ -123,6 +194,109 @@ export const fetchAllLeads = async (params?: {
       limit: 20,
       hasMore: false,
     };
+  }
+};
+
+export const fetchDbLeads = async (params?: {
+  search?: string;
+  status?: string;
+  source?: string;
+  sort_by?: string;
+  sort_order?: string;
+  page?: number;
+  limit?: number;
+}): Promise<DbLeadsResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    if (!params?.page) queryParams.append("page", "1");
+    if (!params?.limit) queryParams.append("limit", "20");
+    if (!params?.sort_by) queryParams.append("sort_by", "dateadded");
+    if (!params?.sort_order) queryParams.append("sort_order", "DESC");
+
+    const url = `${getCrmApiUrl()}/db_leads/listing?${queryParams.toString()}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: getAuthToken(),
+        Cookie: getCrmCookie(),
+        "X-User-Id": getUserId(),
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    if (response.status === 404) return { data: [], total: 0, page: 1, limit: 20, hasMore: false };
+    if (!response.ok) throw new Error(`Status: ${response.status}`);
+
+    const data = await response.json();
+    return {
+      data: Array.isArray(data.data) ? data.data : [],
+      total: Number(data.total) || 0,
+      page: Number(data.page) || 1,
+      limit: Number(data.limit) || 20,
+      hasMore: !!data.hasMore,
+    };
+  } catch (error) {
+    console.error("Error fetching db leads:", error);
+    return { data: [], total: 0, page: 1, limit: 20, hasMore: false };
+  }
+};
+
+export const fetchDeals = async (params?: {
+  search?: string;
+  status?: string;
+  sort_by?: string;
+  sort_order?: string;
+  page?: number;
+  limit?: number;
+}): Promise<DealsResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    if (!params?.page) queryParams.append("page", "1");
+    if (!params?.limit) queryParams.append("limit", "20");
+    if (!params?.sort_by) queryParams.append("sort_by", "datecreated");
+    if (!params?.sort_order) queryParams.append("sort_order", "DESC");
+
+    const url = `${getCrmApiUrl()}/deals/listing?${queryParams.toString()}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: getAuthToken(),
+        Cookie: getCrmCookie(),
+        "X-User-Id": getUserId(),
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    if (response.status === 404) return { data: [], total: 0, page: 1, limit: 20, hasMore: false };
+    if (!response.ok) throw new Error(`Status: ${response.status}`);
+
+    const data = await response.json();
+    return {
+      data: data.data || [],
+      total: data.total || 0,
+      page: data.page || 1,
+      limit: data.limit || 20,
+      hasMore: data.hasMore || false,
+    };
+  } catch (error) {
+    console.error("Error fetching deals:", error);
+    return { data: [], total: 0, page: 1, limit: 20, hasMore: false };
   }
 };
 

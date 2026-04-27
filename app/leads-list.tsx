@@ -16,32 +16,22 @@ import {
   View,
 } from "react-native";
 import { Lead } from "./types";
-import { fetchAllLeads } from "./utils/api";
+import { LeadSource, LeadStatus, fetchAllLeads, fetchLeadSources, fetchLeadStatuses } from "./utils/api";
 
-const SOURCE_OPTIONS = [
-  { id: "", label: "All Sources", icon: "globe-outline" },
-  { id: "1", label: "Google", icon: "logo-google" },
-  { id: "3", label: "Property Finder", icon: "business-outline" },
-  { id: "10", label: "Bayut", icon: "home-outline" },
-  { id: "5", label: "Dubizzle", icon: "cart-outline" },
-  { id: "7", label: "Facebook", icon: "logo-facebook" },
-  { id: "8", label: "Instagram", icon: "logo-instagram" },
-  { id: "9", label: "Website", icon: "globe-outline" },
-  { id: "11", label: "Referral", icon: "people-outline" },
-];
-
-const STATUS_OPTIONS = [
-  { id: "", label: "All Statuses", color: "#64748b" },
-  { id: "1", label: "New Lead", color: "#6366f1" },
-  { id: "2", label: "Contacted", color: "#f59e0b" },
-  { id: "3", label: "Qualified", color: "#10b981" },
-  { id: "4", label: "Focused Follow Up", color: "#8b5cf6" },
-  { id: "5", label: "Meeting Scheduled", color: "#06b6d4" },
-  { id: "6", label: "Proposal Sent", color: "#ec4899" },
-  { id: "7", label: "Negotiation", color: "#ef4444" },
-  { id: "8", label: "Closed Won", color: "#22c55e" },
-  { id: "9", label: "Closed Lost", color: "#6b7280" },
-];
+const sourceIcon = (name: string): string => {
+  const n = name.toLowerCase();
+  if (n.includes("google")) return "logo-google";
+  if (n.includes("facebook")) return "logo-facebook";
+  if (n.includes("instagram")) return "logo-instagram";
+  if (n.includes("linkedin")) return "logo-linkedin";
+  if (n.includes("whatsapp")) return "logo-whatsapp";
+  if (n.includes("bayut") || n.includes("property finder")) return "home-outline";
+  if (n.includes("referral")) return "people-outline";
+  if (n.includes("website") || n.includes("web")) return "globe-outline";
+  if (n.includes("social")) return "share-social-outline";
+  if (n.includes("open house") || n.includes("road show")) return "megaphone-outline";
+  return "flash-outline";
+};
 
 const UNIT_TYPE_OPTIONS = [
   { id: "", label: "All Types" },
@@ -72,6 +62,8 @@ const avatarColor = (name: string) =>
 
 export default function LeadsListScreen() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [apiSources, setApiSources] = useState<LeadSource[]>([]);
+  const [apiStatuses, setApiStatuses] = useState<LeadStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -130,6 +122,13 @@ export default function LeadsListScreen() {
       else setLoadingMore(false);
     }
   };
+
+  useEffect(() => {
+    Promise.all([fetchLeadSources(), fetchLeadStatuses()]).then(([src, sta]) => {
+      setApiSources(src);
+      setApiStatuses(sta);
+    });
+  }, []);
 
   useEffect(() => {
     loadLeads(1, true);
@@ -192,7 +191,7 @@ export default function LeadsListScreen() {
     );
 
   const getStatusColor = (name: string) =>
-    STATUS_OPTIONS.find((s) => s.label === name)?.color ?? "#64748b";
+    apiStatuses.find((s) => s.name.trim() === name?.trim())?.color ?? "#64748b";
 
   const hasActiveFilters = () =>
     Object.entries(filters).some(
@@ -375,32 +374,36 @@ export default function LeadsListScreen() {
             <FilterSection label="Source">
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipRow}>
-                  {SOURCE_OPTIONS.map((o) => (
-                    <TouchableOpacity
-                      key={o.id}
-                      style={[
-                        styles.chip,
-                        tempFilters.source === o.id && styles.chipActive,
-                      ]}
-                      onPress={() =>
-                        setTempFilters({ ...tempFilters, source: o.id })
-                      }
-                    >
-                      <Ionicons
-                        name={o.icon as any}
-                        size={14}
-                        color={tempFilters.source === o.id ? "#fff" : "#64748b"}
-                      />
-                      <Text
-                        style={[
-                          styles.chipText,
-                          tempFilters.source === o.id && styles.chipTextActive,
-                        ]}
+                  {/* All Sources chip */}
+                  <TouchableOpacity
+                    key="src-all"
+                    style={[styles.chip, tempFilters.source === "" && styles.chipActive]}
+                    onPress={() => setTempFilters({ ...tempFilters, source: "" })}
+                  >
+                    <Ionicons name="globe-outline" size={14} color={tempFilters.source === "" ? "#fff" : "#64748b"} />
+                    <Text style={[styles.chipText, tempFilters.source === "" && styles.chipTextActive]}>
+                      All Sources
+                    </Text>
+                  </TouchableOpacity>
+                  {apiSources.map((o) => {
+                    const active = tempFilters.source === String(o.id);
+                    return (
+                      <TouchableOpacity
+                        key={`src-${o.id}`}
+                        style={[styles.chip, active && styles.chipActive]}
+                        onPress={() => setTempFilters({ ...tempFilters, source: String(o.id) })}
                       >
-                        {o.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Ionicons
+                          name={sourceIcon(o.name) as any}
+                          size={14}
+                          color={active ? "#fff" : "#64748b"}
+                        />
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                          {o.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </ScrollView>
             </FilterSection>
@@ -408,30 +411,32 @@ export default function LeadsListScreen() {
             <FilterSection label="Status">
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipRow}>
-                  {STATUS_OPTIONS.map((o) => (
-                    <TouchableOpacity
-                      key={o.id}
-                      style={[
-                        styles.chip,
-                        tempFilters.status === o.id && styles.chipActive,
-                      ]}
-                      onPress={() =>
-                        setTempFilters({ ...tempFilters, status: o.id })
-                      }
-                    >
-                      <View
-                        style={[styles.dotSmall, { backgroundColor: o.color }]}
-                      />
-                      <Text
-                        style={[
-                          styles.chipText,
-                          tempFilters.status === o.id && styles.chipTextActive,
-                        ]}
+                  {/* All Statuses chip */}
+                  <TouchableOpacity
+                    key="sta-all"
+                    style={[styles.chip, tempFilters.status === "" && styles.chipActive]}
+                    onPress={() => setTempFilters({ ...tempFilters, status: "" })}
+                  >
+                    <View style={[styles.dotSmall, { backgroundColor: "#64748b" }]} />
+                    <Text style={[styles.chipText, tempFilters.status === "" && styles.chipTextActive]}>
+                      All Statuses
+                    </Text>
+                  </TouchableOpacity>
+                  {apiStatuses.map((o) => {
+                    const active = tempFilters.status === String(o.id);
+                    return (
+                      <TouchableOpacity
+                        key={`sta-${o.id}`}
+                        style={[styles.chip, active && styles.chipActive]}
+                        onPress={() => setTempFilters({ ...tempFilters, status: String(o.id) })}
                       >
-                        {o.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <View style={[styles.dotSmall, { backgroundColor: o.color }]} />
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                          {o.name.trim()}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </ScrollView>
             </FilterSection>

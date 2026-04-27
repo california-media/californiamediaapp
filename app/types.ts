@@ -66,6 +66,105 @@ export interface LeadsResponse {
   hasMore: boolean;
 }
 
+export interface DbLead {
+  id: string;
+  hash: string;
+  full_name: string;
+  mobile_number: string;
+  email: string;
+  source: string;
+  campaign_id: string;
+  property_status: string | null;
+  budget: string;
+  location_preference: string | null;
+  country: string | null;
+  language: string | null;
+  area: string;
+  city: string;
+  observer: string | null;
+  bedroom: string | null;
+  unit_type: string | null;
+  unit_number: string | null;
+  developer_id: string | null;
+  project_id: string | null;
+  custom_fields: any;
+  assigned: string;
+  status: string;
+  notes: string;
+  dateadded: string;
+  addedfrom: string;
+  last_status_change: string | null;
+  expires_at: string | null;
+  is_public: string;
+  status_name: string;
+  source_name: string;
+  assigned_firstname?: string;
+  assigned_lastname?: string;
+  assigned_name: string;
+}
+
+export interface DbLeadsResponse {
+  data: DbLead[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface Deal {
+  id: string;
+  datecreated: string;
+  active: string;
+  leadid: string | null;
+  addedfrom: string;
+  deal_name: string;
+  close_date: string | null;
+  deal_status: string;
+  deal_type: string | null;
+  deal_source: string | null;
+  client_name: string;
+  client_phone: string;
+  client_email: string;
+  client_classification: string | null;
+  client_activity: string | null;
+  client_country: string | null;
+  unit_number: string | null;
+  unit_type: string | null;
+  unit_price: string;
+  building_number: string | null;
+  floor_number: string | null;
+  project: string | null;
+  developers: string | null;
+  down_payment: string | null;
+  dld_fee: string | null;
+  total_commission: string | null;
+  company_commission: string | null;
+  outside_commission: string | null;
+  resolved_amount: string | null;
+  agent: string | null;
+  agent_commission: string | null;
+  deal_value: string;
+  admin_fee: string | null;
+  paid_amount: string | null;
+  unpaid_amount: string | null;
+  attachments: string | null;
+  personal_documents: string | null;
+  finance_documents: string | null;
+  property_documents: string | null;
+  status_name: string | null;
+  type_name: string | null;
+  source_name: string | null;
+  addedfrom_name: string;
+}
+
+export interface DealsResponse {
+  data: Deal[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 // export interface Lead {
 //   id: string;
 //   name: string;
