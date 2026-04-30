@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "app-firebase",
+    "name": "MyDesk",
     "slug": "app-firebase",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "appfirebase",
+    "scheme": "mydesk",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.asthajain22.appfirebase",
+      "bundleIdentifier": "com.californiamedia.mydesk",
       "buildNumber": "8",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -28,14 +28,14 @@
     "android": {
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.asthajain22.appfirebase"
+      "package": "com.californiamedia.mydesk"
     },
     "web": {
       "output": "static",
