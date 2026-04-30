@@ -16,8 +16,8 @@ import {
   View,
 } from "react-native";
 import { DbLead } from "./types";
-import { fetchDbLeads, fetchDbLeadSources, fetchDbLeadStatuses } from "./utils/api";
-import type { LeadSource, LeadStatus } from "./utils/api";
+import { fetchDbLeads, fetchDbLeadSources, fetchDbLeadStatuses, fetchStaff } from "./utils/api";
+import type { LeadSource, LeadStatus, StaffMember } from "./utils/api";
 
 const AVATAR_COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
@@ -49,18 +49,21 @@ export default function DbLeadsListScreen() {
   const [filters, setFilters] = useState({
     status: "",
     source: "",
+    assigned: "",
     sort_order: "DESC" as "ASC" | "DESC",
   });
   const [tempFilters, setTempFilters] = useState(filters);
   const [apiSources, setApiSources] = useState<LeadSource[]>([]);
   const [apiStatuses, setApiStatuses] = useState<LeadStatus[]>([]);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const router = useRouter();
 
   useEffect(() => {
-    Promise.all([fetchDbLeadSources(), fetchDbLeadStatuses()]).then(([src, sta]) => {
+    Promise.all([fetchDbLeadSources(), fetchDbLeadStatuses(), fetchStaff()]).then(([src, sta, staff]) => {
       setApiSources(src);
       setApiStatuses(sta);
+      setStaffList(staff);
     });
   }, []);
 
@@ -78,6 +81,7 @@ export default function DbLeadsListScreen() {
       if (searchQuery) params.search = searchQuery;
       if (f.status) params.status = f.status;
       if (f.source) params.source = f.source;
+      if (f.assigned) params.assigned = f.assigned;
 
       const response = await fetchDbLeads(params);
       const newLeads = Array.isArray(response.data) ? response.data : [];
@@ -129,7 +133,7 @@ export default function DbLeadsListScreen() {
   };
 
   const clearFilters = () => {
-    const reset = { status: "", source: "", sort_order: "DESC" as const };
+    const reset = { status: "", source: "", assigned: "", sort_order: "DESC" as const };
     setFilters(reset);
     setTempFilters(reset);
     setSearchQuery("");
@@ -145,8 +149,8 @@ export default function DbLeadsListScreen() {
   const getStatusColor = (name: string) =>
     apiStatuses.find((s) => s.name.trim() === name?.trim())?.color ?? "#64748b";
 
-  const hasActiveFilters = () => filters.status !== "" || filters.source !== "";
-  const getActiveFilterCount = () => [filters.status, filters.source].filter(Boolean).length;
+  const hasActiveFilters = () => filters.status !== "" || filters.source !== "" || filters.assigned !== "";
+  const getActiveFilterCount = () => [filters.status, filters.source, filters.assigned].filter(Boolean).length;
 
   /* ── Card ── */
   const renderCard = ({ item }: { item: DbLead }) => {
@@ -303,7 +307,14 @@ export default function DbLeadsListScreen() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
+            {/* Assigned To — full-width searchable dropdown at top */}
+            <AssignedDropdown
+              value={tempFilters.assigned}
+              onChange={(v) => setTempFilters({ ...tempFilters, assigned: v })}
+              staffList={staffList}
+            />
+
             <FilterSection label="Status">
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipRow}>
@@ -473,6 +484,164 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
     </View>
   );
 }
+
+function AssignedDropdown({
+  value,
+  onChange,
+  staffList,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  staffList: StaffMember[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  const selected = staffList.find((s) => String(s.staffid) === value);
+  const selectedLabel = selected ? `${selected.firstname} ${selected.lastname}` : null;
+
+  const filtered = staffList.filter((s) =>
+    `${s.firstname} ${s.lastname} ${s.email}`.toLowerCase().includes(q.toLowerCase())
+  );
+
+  return (
+    <View style={adStyles.wrapper}>
+      <Text style={adStyles.sectionLabel}>ASSIGNED TO</Text>
+
+      <TouchableOpacity
+        style={[adStyles.trigger, open && adStyles.triggerOpen]}
+        onPress={() => { setOpen(!open); setQ(""); }}
+        activeOpacity={0.8}
+      >
+        {selected ? (
+          <View style={adStyles.triggerSelected}>
+            <View style={[adStyles.triggerAvatar, { backgroundColor: avatarColor(selected.firstname) + "22" }]}>
+              <Text style={[adStyles.triggerAvatarText, { color: avatarColor(selected.firstname) }]}>
+                {selected.firstname.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <Text style={adStyles.triggerName} numberOfLines={1}>{selectedLabel}</Text>
+          </View>
+        ) : (
+          <View style={adStyles.triggerSelected}>
+            <Ionicons name="people-outline" size={16} color="#94a3b8" />
+            <Text style={adStyles.triggerPlaceholder}>All Agents</Text>
+          </View>
+        )}
+        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={16} color="#94a3b8" />
+      </TouchableOpacity>
+
+      {open && (
+        <View style={adStyles.panel}>
+          <View style={adStyles.searchRow}>
+            <Ionicons name="search" size={14} color="#94a3b8" />
+            <TextInput
+              style={adStyles.searchInput}
+              placeholder="Search agents…"
+              placeholderTextColor="#94a3b8"
+              value={q}
+              onChangeText={setQ}
+              autoFocus
+            />
+            {q !== "" && (
+              <TouchableOpacity onPress={() => setQ("")}>
+                <Ionicons name="close-circle" size={15} color="#cbd5e1" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[adStyles.row, value === "" && adStyles.rowSelected]}
+            onPress={() => { onChange(""); setOpen(false); setQ(""); }}
+          >
+            <View style={[adStyles.avatar, { backgroundColor: "#e2e8f0" }]}>
+              <Ionicons name="people" size={14} color="#64748b" />
+            </View>
+            <Text style={[adStyles.rowText, value === "" && adStyles.rowTextSelected]}>All Agents</Text>
+            {value === "" && <Ionicons name="checkmark" size={15} color="#6366f1" />}
+          </TouchableOpacity>
+
+          <ScrollView
+            style={adStyles.list}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+          >
+            {filtered.length === 0 ? (
+              <Text style={adStyles.empty}>No agents found</Text>
+            ) : (
+              filtered.map((s) => {
+                const sid = String(s.staffid);
+                const isSelected = value === sid;
+                const col = avatarColor(s.firstname);
+                return (
+                  <TouchableOpacity
+                    key={sid}
+                    style={[adStyles.row, isSelected && adStyles.rowSelected]}
+                    onPress={() => { onChange(sid); setOpen(false); setQ(""); }}
+                  >
+                    <View style={[adStyles.avatar, { backgroundColor: col + "22" }]}>
+                      <Text style={[adStyles.avatarText, { color: col }]}>
+                        {s.firstname.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[adStyles.rowText, isSelected && adStyles.rowTextSelected]} numberOfLines={1}>
+                        {s.firstname} {s.lastname}
+                      </Text>
+                      <Text style={adStyles.rowEmail} numberOfLines={1}>{s.email}</Text>
+                    </View>
+                    {isSelected && <Ionicons name="checkmark" size={15} color="#6366f1" />}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const adStyles = StyleSheet.create({
+  wrapper: { marginBottom: 20 },
+  sectionLabel: { fontSize: 11, fontWeight: "700", color: "#94a3b8", letterSpacing: 0.8, marginBottom: 8 },
+  trigger: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: "#f8fafc", borderRadius: 14, borderWidth: 1, borderColor: "#e2e8f0",
+    paddingHorizontal: 14, paddingVertical: 12,
+  },
+  triggerOpen: { borderColor: "#6366f1", backgroundColor: "#eef2ff" },
+  triggerSelected: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  triggerAvatar: { width: 28, height: 28, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  triggerAvatarText: { fontSize: 13, fontWeight: "700" },
+  triggerName: { fontSize: 14, fontWeight: "600", color: "#1e293b", flex: 1 },
+  triggerPlaceholder: { fontSize: 14, color: "#94a3b8" },
+  panel: {
+    backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#e2e8f0",
+    marginTop: 6, overflow: "hidden",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
+  },
+  searchRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: "#f1f5f9", backgroundColor: "#fafafa",
+  },
+  searchInput: { flex: 1, fontSize: 14, color: "#1e293b" },
+  list: { maxHeight: 220 },
+  empty: { textAlign: "center", color: "#94a3b8", padding: 20, fontSize: 13 },
+  row: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 14, paddingVertical: 11,
+    borderBottomWidth: 1, borderBottomColor: "#f8fafc",
+  },
+  rowSelected: { backgroundColor: "#eef2ff" },
+  avatar: { width: 34, height: 34, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  avatarText: { fontSize: 14, fontWeight: "700" },
+  rowText: { fontSize: 13, fontWeight: "500", color: "#1e293b" },
+  rowTextSelected: { color: "#6366f1", fontWeight: "700" },
+  rowEmail: { fontSize: 11, color: "#94a3b8", marginTop: 1 },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f1f5f9" },

@@ -3,6 +3,35 @@ import { DbLeadsResponse, DealsResponse, LeadsResponse } from "../types";
 
 export interface LeadSource { id: number; name: string; }
 export interface LeadStatus { id: number; name: string; color: string; statusorder: number; }
+export interface StaffMember { staffid: number; firstname: string; lastname: string; email: string; }
+
+export const fetchStaff = async (): Promise<StaffMember[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/assigned_agents`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const bulkAssignLeads = async (staffId: string, leadIds: string[]): Promise<boolean> => {
+  try {
+    const form = new FormData();
+    form.append("assigned", staffId);
+    form.append("lead_ids", leadIds.join(","));
+    const res = await fetch(`${getCrmApiUrl()}/leads_bulk_assign/data`, {
+      method: "POST",
+      headers: {
+        Authorization: getAuthToken(),
+        Cookie: getCrmCookie(),
+        "X-User-Id": getUserId(),
+        Accept: "application/json",
+      },
+      body: form,
+    });
+    return res.ok;
+  } catch { return false; }
+};
 
 const buildAuthHeaders = () => ({
   Authorization: getAuthToken(),
@@ -201,6 +230,7 @@ export const fetchDbLeads = async (params?: {
   search?: string;
   status?: string;
   source?: string;
+  assigned?: string;
   sort_by?: string;
   sort_order?: string;
   page?: number;

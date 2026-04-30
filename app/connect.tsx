@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -39,22 +40,6 @@ export default function ConnectScreen() {
     setLoading(true);
 
     try {
-      // Quick connectivity check — ping /api to verify it's a valid CRM endpoint
-      const testUrl = `${normalized}/api`;
-      const response = await fetch(testUrl, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-      }).catch(() => null);
-
-      // If we get any response (even 4xx), the server is reachable
-      if (!response) {
-        setError(
-          "Could not reach this CRM. Check the URL and your connection.",
-        );
-        setLoading(false);
-        return;
-      }
-
       await setCrmUrl(trimmed);
       router.replace("/login");
     } catch {
@@ -70,9 +55,13 @@ export default function ConnectScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={styles.inner}>
-        {/* Logo / Icon */}
+        {/* Logo */}
         <View style={styles.iconContainer}>
-          <Ionicons name="globe-outline" size={56} color="#6366f1" />
+          <Image
+            source={require("../assets/images/icon.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         <Text style={styles.title}>Connect to your CRM</Text>
@@ -149,11 +138,16 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 24,
-    backgroundColor: "#eef2ff",
+    backgroundColor: "transparent",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 28,
     alignSelf: "center",
+  },
+  logoImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
   },
   title: {
     fontSize: 28,

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Alert, Modal, FlatList,
+  TextInput, ActivityIndicator, Modal, FlatList,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from './utils/config';
 import { Deal } from './types';
+import { Toast } from './components/Toast';
+import { useToast } from './utils/useToast';
 
 // ─── Static options ───────────────────────────────────────────────────────────
 const DEAL_STATUSES = [
@@ -114,6 +116,7 @@ export default function AddDealScreen() {
   const [picker, setPicker] = useState<PickerState>({
     visible: false, title: '', options: [], selected: '', onSelect: () => {},
   });
+  const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const [saving, setSaving] = useState(false);
 
   const openPicker = (
@@ -125,8 +128,8 @@ export default function AddDealScreen() {
 
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!dealName.trim()) { Alert.alert('Validation', 'Deal name is required.'); return; }
-    if (!clientName.trim()) { Alert.alert('Validation', 'Client name is required.'); return; }
+    if (!dealName.trim()) { showToast('Deal name is required.', 'error'); return; }
+    if (!clientName.trim()) { showToast('Client name is required.', 'error'); return; }
 
     setSaving(true);
     try {
@@ -159,14 +162,13 @@ export default function AddDealScreen() {
       }
 
       if (res?.status) {
-        Alert.alert('Success', isEdit ? 'Deal updated successfully.' : 'Deal added successfully.', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        showToast(isEdit ? 'Deal updated successfully.' : 'Deal added successfully.', 'success');
+        setTimeout(() => router.back(), 1200);
       } else {
-        Alert.alert('Error', res?.message || `Failed to ${isEdit ? 'update' : 'add'} deal.`);
+        showToast(res?.message || `Failed to ${isEdit ? 'update' : 'add'} deal.`, 'error');
       }
     } catch {
-      Alert.alert('Error', 'Network error. Please try again.');
+      showToast('Network error. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -297,6 +299,7 @@ export default function AddDealScreen() {
           </View>
         </View>
       </Modal>
+      <Toast msg={toastMsg} type={toastType} anim={toastAnim} />
     </KeyboardAvoidingView>
   );
 }

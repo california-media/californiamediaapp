@@ -18,7 +18,9 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Lead } from './types';
 import { LeadStatus, fetchLeadStatuses, fetchLeadById } from './utils/api';
-import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from './utils/config';
+import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId, getStaffInfo } from './utils/config';
+import { Toast } from './components/Toast';
+import { useToast } from './utils/useToast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -250,6 +252,12 @@ export default function LeadDetailScreen() {
   const [activityText, setActivityText] = useState('');
   const [activitySaving, setActivitySaving] = useState(false);
 
+  // ── Toast ────────────────────────────────────────────────────────────────
+  const { showToast, toastMsg, toastType, toastAnim } = useToast();
+
+  // ── Admin check ──────────────────────────────────────────────────────────
+  const isAdmin = getStaffInfo()?.admin === '1';
+
   // ── Status colors ─────────────────────────────────────────────────────────
   const [apiStatuses, setApiStatuses] = useState<LeadStatus[]>([]);
 
@@ -326,8 +334,9 @@ export default function LeadDetailScreen() {
         }
       }
       setNoteModalVisible(false);
+      setActivitiesFetched(false);
     } catch (e) {
-      Alert.alert('Error', 'Failed to save note. Please try again.');
+      showToast('Failed to save note. Please try again.', 'error');
     } finally {
       setNoteSaving(false);
     }
@@ -344,7 +353,7 @@ export default function LeadDetailScreen() {
             await apiDelete(`/lead_notes/${note.id}`);
             setNotes(prev => prev.filter(n => n.id !== note.id));
           } catch {
-            Alert.alert('Error', 'Failed to delete note.');
+            showToast('Failed to delete note.', 'error');
           }
         },
       },
@@ -421,8 +430,9 @@ export default function LeadDetailScreen() {
         await loadReminders();
       }
       setReminderModalVisible(false);
+      setActivitiesFetched(false);
     } catch (e) {
-      Alert.alert('Error', 'Failed to save reminder.');
+      showToast('Failed to save reminder.', 'error');
     } finally {
       setReminderSaving(false);
     }
@@ -439,7 +449,7 @@ export default function LeadDetailScreen() {
             await apiDelete(`/lead_reminders/${r.id}`);
             setReminders(prev => prev.filter(item => item.id !== r.id));
           } catch {
-            Alert.alert('Error', 'Failed to delete reminder.');
+            showToast('Failed to delete reminder.', 'error');
           }
         },
       },
@@ -476,7 +486,7 @@ export default function LeadDetailScreen() {
         await loadActivities();
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to log activity.');
+      showToast('Failed to log activity.', 'error');
     } finally {
       setActivitySaving(false);
     }
@@ -494,6 +504,25 @@ export default function LeadDetailScreen() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleDeleteLead = () => {
+    Alert.alert('Delete Lead', `Are you sure you want to delete "${lead.name}"? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiDelete(`/leads/${lead.id}`);
+            showToast('Lead deleted successfully', 'success');
+            setTimeout(() => router.back(), 1200);
+          } catch {
+            showToast('Failed to delete lead. Try again.', 'error');
+          }
+        },
+      },
+    ]);
   };
 
   const handleCall = () => {
@@ -525,6 +554,13 @@ export default function LeadDetailScreen() {
           >
             <Ionicons name="create-outline" size={18} color="#fff" />
           </TouchableOpacity>
+
+          {/* Delete button — admin only */}
+          {isAdmin && (
+            <TouchableOpacity onPress={handleDeleteLead} style={styles.heroDelete}>
+              <Ionicons name="trash-outline" size={18} color="#fca5a5" />
+            </TouchableOpacity>
+          )}
 
           {/* Avatar */}
           <View style={styles.heroAvatar}>
@@ -667,6 +703,18 @@ export default function LeadDetailScreen() {
                 })()}
               </View>
             </View>
+
+            {lead.assigned_name ? (
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <Ionicons name="person-outline" size={22} color="#6366f1" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>ASSIGNED TO</Text>
+                  <Text style={styles.infoValue}>{lead.assigned_name}</Text>
+                </View>
+              </View>
+            ) : null}
 
             {lead.lead_value ? (
               <View style={styles.infoRow}>
@@ -1117,6 +1165,7 @@ export default function LeadDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <Toast msg={toastMsg} type={toastType} anim={toastAnim} />
     </View>
   );
 }
@@ -1150,6 +1199,17 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroDelete: {
+    position: 'absolute',
+    top: 54,
+    right: 60,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(239,68,68,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -2,10 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { useState, useCallback } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Deal } from "./types";
 import { fetchDealById } from "./utils/api";
 import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from "./utils/config";
+import { Toast } from "./components/Toast";
+import { useToast } from "./utils/useToast";
 
 const fmt = (v: string | null, prefix = "AED ") => {
   const n = parseFloat(v ?? "0");
@@ -30,6 +32,7 @@ const statusColor = (name: string | null) =>
 
 export default function DealDetailScreen() {
   const router = useRouter();
+  const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const { deal: dealParam } = useLocalSearchParams<{ deal: string }>();
   const [deal, setDeal] = useState<Deal>(JSON.parse(dealParam ?? "{}"));
   const [deleting, setDeleting] = useState(false);
@@ -68,14 +71,13 @@ export default function DealDetailScreen() {
                 },
               });
               if (res.ok || res.status === 200) {
-                Alert.alert("Deleted", "Deal deleted successfully.", [
-                  { text: "OK", onPress: () => router.back() },
-                ]);
+                showToast("Deal deleted successfully.", "success");
+                setTimeout(() => router.back(), 1200);
               } else {
-                Alert.alert("Error", "Failed to delete. Try again.");
+                showToast("Failed to delete. Try again.", "error");
               }
             } catch {
-              Alert.alert("Error", "Network error. Try again.");
+              showToast("Network error. Try again.", "error");
             } finally {
               setDeleting(false);
             }
@@ -212,6 +214,7 @@ export default function DealDetailScreen() {
         </TouchableOpacity>
 
       </ScrollView>
+      <Toast msg={toastMsg} type={toastType} anim={toastAnim} />
     </View>
   );
 }

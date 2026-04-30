@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   Modal,
   FlatList,
   KeyboardAvoidingView,
@@ -17,6 +16,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from './utils/config';
 import { Lead } from './types';
+import { Toast } from './components/Toast';
+import { useToast } from './utils/useToast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,6 +110,7 @@ export default function AddLeadScreen() {
   });
 
   // ── Saving ──────────────────────────────────────────────────────────────────
+  const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const [saving, setSaving] = useState(false);
 
   // ── Load meta ──────────────────────────────────────────────────────────────
@@ -174,15 +176,15 @@ export default function AddLeadScreen() {
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert('Validation', 'Name is required.');
+      showToast('Name is required.', 'error');
       return;
     }
     if (!email.trim()) {
-      Alert.alert('Validation', 'Email is required.');
+      showToast('Email is required.', 'error');
       return;
     }
     if (!phone.trim()) {
-      Alert.alert('Validation', 'Phone number is required.');
+      showToast('Phone number is required.', 'error');
       return;
     }
 
@@ -202,11 +204,10 @@ export default function AddLeadScreen() {
 
         const res = await apiPutForm(`/leads/${existingLead.id}`, body);
         if (res?.status) {
-          Alert.alert('Success', 'Lead updated successfully.', [
-            { text: 'OK', onPress: () => router.back() },
-          ]);
+          showToast('Lead updated successfully.', 'success');
+          setTimeout(() => router.back(), 1200);
         } else {
-          Alert.alert('Error', res?.message || 'Failed to update lead.');
+          showToast(res?.message || 'Failed to update lead.', 'error');
         }
       } else {
         const body: Record<string, string> = {
@@ -224,15 +225,14 @@ export default function AddLeadScreen() {
 
         const res = await apiPostForm('/leads/data', body);
         if (res?.status) {
-          Alert.alert('Success', 'Lead added successfully.', [
-            { text: 'OK', onPress: () => router.back() },
-          ]);
+          showToast('Lead added successfully.', 'success');
+          setTimeout(() => router.back(), 1200);
         } else {
-          Alert.alert('Error', res?.message || 'Failed to add lead.');
+          showToast(res?.message || 'Failed to add lead.', 'error');
         }
       }
     } catch (e) {
-      Alert.alert('Error', 'Network error. Please try again.');
+      showToast('Network error. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -443,6 +443,7 @@ export default function AddLeadScreen() {
           </View>
         </View>
       </Modal>
+      <Toast msg={toastMsg} type={toastType} anim={toastAnim} />
     </KeyboardAvoidingView>
   );
 }

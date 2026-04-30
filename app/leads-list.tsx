@@ -15,23 +15,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Toast } from "./components/Toast";
+import { useToast } from "./utils/useToast";
 import { Lead } from "./types";
-import { LeadSource, LeadStatus, fetchAllLeads, fetchLeadSources, fetchLeadStatuses } from "./utils/api";
+import { LeadSource, LeadStatus, StaffMember, bulkAssignLeads, fetchAllLeads, fetchLeadSources, fetchLeadStatuses, fetchStaff } from "./utils/api";
 
-const sourceIcon = (name: string): string => {
-  const n = name.toLowerCase();
-  if (n.includes("google")) return "logo-google";
-  if (n.includes("facebook")) return "logo-facebook";
-  if (n.includes("instagram")) return "logo-instagram";
-  if (n.includes("linkedin")) return "logo-linkedin";
-  if (n.includes("whatsapp")) return "logo-whatsapp";
-  if (n.includes("bayut") || n.includes("property finder")) return "home-outline";
-  if (n.includes("referral")) return "people-outline";
-  if (n.includes("website") || n.includes("web")) return "globe-outline";
-  if (n.includes("social")) return "share-social-outline";
-  if (n.includes("open house") || n.includes("road show")) return "megaphone-outline";
-  return "flash-outline";
-};
 
 const UNIT_TYPE_OPTIONS = [
   { id: "", label: "All Types" },
@@ -74,15 +62,27 @@ export default function LeadsListScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Bulk assign state
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignLeadId, setAssignLeadId] = useState<string | null>(null);
+  const [currentAssignedId, setCurrentAssignedId] = useState<string>("");
+  const [assignSearch, setAssignSearch] = useState("");
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [assigning, setAssigning] = useState(false);
+
   const [filters, setFilters] = useState({
     source: "",
     status: "",
     unit_type: "",
+    assigned: "",
     sort_by: "dateadded",
     sort_order: "DESC" as "ASC" | "DESC",
   });
   const [tempFilters, setTempFilters] = useState(filters);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const router = useRouter();
 
   const loadLeads = async (
@@ -102,6 +102,7 @@ export default function LeadsListScreen() {
       if (currentFilters.source) params.source = currentFilters.source;
       if (currentFilters.status) params.status = currentFilters.status;
       if (currentFilters.unit_type) params.unit_type = currentFilters.unit_type;
+      if (currentFilters.assigned) params.assigned = currentFilters.assigned;
       params.sort_by = currentFilters.sort_by;
       params.sort_order = currentFilters.sort_order;
       params.limit = 20;
@@ -124,9 +125,10 @@ export default function LeadsListScreen() {
   };
 
   useEffect(() => {
-    Promise.all([fetchLeadSources(), fetchLeadStatuses()]).then(([src, sta]) => {
+    Promise.all([fetchLeadSources(), fetchLeadStatuses(), fetchStaff()]).then(([src, sta, staff]) => {
       setApiSources(src);
       setApiStatuses(sta);
+      setStaffList(staff);
     });
   }, []);
 
@@ -171,6 +173,7 @@ export default function LeadsListScreen() {
       source: "",
       status: "",
       unit_type: "",
+      assigned: "",
       sort_by: "dateadded",
       sort_order: "DESC" as const,
     };
@@ -178,6 +181,50 @@ export default function LeadsListScreen() {
     setTempFilters(reset);
     setSearchQuery("");
     setShowFilterModal(false);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const openQuickAssign = (id: string, assignedId: string = "") => {
+    setAssignLeadId(id);
+    setCurrentAssignedId(assignedId);
+    setAssignSearch("");
+    setShowAssignModal(true);
+  };
+
+  const openBulkAssign = () => {
+    setAssignLeadId(null);
+    setCurrentAssignedId("");
+    setAssignSearch("");
+    setShowAssignModal(true);
+  };
+
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleAssign = async (staffId: string) => {
+    setAssigning(true);
+    const ids = assignLeadId ? [assignLeadId] : [...selectedIds];
+    const ok = await bulkAssignLeads(staffId, ids);
+    setAssigning(false);
+    if (ok) {
+      setShowAssignModal(false);
+      setAssignLeadId(null);
+      exitSelectMode();
+      loadLeads(1, true);
+      showToast(`Lead${ids.length > 1 ? "s" : ""} assigned successfully`, "success");
+    } else {
+      showToast("Failed to assign. Please try again.", "error");
+    }
   };
 
   const handleCall = (phone: string) =>
@@ -208,30 +255,42 @@ export default function LeadsListScreen() {
     const color = avatarColor(item.name ?? "");
     const statusColor = getStatusColor(item.status_name);
     const hasPhone = !!item.phonenumber;
+    const isSelected = selectedIds.has(item.id);
 
     return (
       <TouchableOpacity
-        style={styles.leadCard}
-        onPress={() =>
-          router.push({
-            pathname: "/lead-detail",
-            params: { lead: JSON.stringify(item) },
-          })
-        }
+        style={[styles.leadCard, isSelected && styles.leadCardSelected]}
+        onPress={() => {
+          if (isSelectMode) {
+            toggleSelect(item.id);
+          } else {
+            router.push({ pathname: "/lead-detail", params: { lead: JSON.stringify(item) } });
+          }
+        }}
+        onLongPress={() => {
+          if (!isSelectMode) {
+            setIsSelectMode(true);
+            toggleSelect(item.id);
+          }
+        }}
         activeOpacity={0.72}
       >
-        {/* Top row: avatar · name/phone · call/whatsapp */}
+        {/* Top row */}
         <View style={styles.cardTop}>
-          <View style={[styles.avatar, { backgroundColor: color + "22" }]}>
-            <Text style={[styles.avatarLetter, { color }]}>
-              {item.name?.charAt(0)?.toUpperCase() ?? "?"}
-            </Text>
-          </View>
+          {isSelectMode ? (
+            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+              {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+            </View>
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: color + "22" }]}>
+              <Text style={[styles.avatarLetter, { color }]}>
+                {item.name?.charAt(0)?.toUpperCase() ?? "?"}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.cardMeta}>
-            <Text style={styles.leadName} numberOfLines={1}>
-              {item.name}
-            </Text>
+            <Text style={styles.leadName} numberOfLines={1}>{item.name}</Text>
             {hasPhone && (
               <View style={styles.phoneRow}>
                 <Ionicons name="call-outline" size={11} color="#94a3b8" />
@@ -240,30 +299,41 @@ export default function LeadsListScreen() {
             )}
           </View>
 
-          {hasPhone && (
-            <View style={styles.actionIcons}>
+          <View style={styles.actionIcons}>
+            {!isSelectMode && (
               <TouchableOpacity
-                style={styles.iconBtnCall}
-                onPress={(e) => { e.stopPropagation(); handleCall(item.phonenumber); }}
+                style={styles.iconBtnAssign}
+                onPress={(e) => { e.stopPropagation(); openQuickAssign(item.id, item.assigned); }}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
-                <Ionicons name="call" size={15} color="#fff" />
+                <Ionicons name="person-add-outline" size={14} color="#6366f1" />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.iconBtnWa}
-                onPress={(e) => { e.stopPropagation(); handleWhatsApp(item.phonenumber); }}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <Ionicons name="logo-whatsapp" size={15} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          )}
+            )}
+            {hasPhone && !isSelectMode && (
+              <>
+                <TouchableOpacity
+                  style={styles.iconBtnCall}
+                  onPress={(e) => { e.stopPropagation(); handleCall(item.phonenumber); }}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="call" size={15} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.iconBtnWa}
+                  onPress={(e) => { e.stopPropagation(); handleWhatsApp(item.phonenumber); }}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="logo-whatsapp" size={15} color="#fff" />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
 
         {/* Divider */}
         <View style={styles.cardDivider} />
 
-        {/* Bottom row: source · status */}
+        {/* Bottom row */}
         <View style={styles.cardBottom}>
           <View style={styles.sourceBadge}>
             <Ionicons name="flash-outline" size={11} color="#6366f1" />
@@ -272,7 +342,6 @@ export default function LeadsListScreen() {
               {item.source_name || "Direct"}
             </Text>
           </View>
-
           <View style={[styles.statusPill, { backgroundColor: statusColor + "18" }]}>
             <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
             <Text style={[styles.statusLabel, { color: statusColor }]} numberOfLines={1}>
@@ -294,8 +363,11 @@ export default function LeadsListScreen() {
 
       {/* Sticky search bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#1e293b" />
+        <TouchableOpacity
+          onPress={() => isSelectMode ? exitSelectMode() : router.back()}
+          style={styles.backBtn}
+        >
+          <Ionicons name={isSelectMode ? "close" : "arrow-back"} size={22} color={isSelectMode ? "#ef4444" : "#1e293b"} />
         </TouchableOpacity>
 
         <View style={styles.searchBox}>
@@ -313,6 +385,17 @@ export default function LeadsListScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        <TouchableOpacity
+          style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
+          onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}
+        >
+          <Ionicons
+            name={isSelectMode ? "checkmark-done" : "checkmark-circle-outline"}
+            size={20}
+            color={isSelectMode ? "#6366f1" : "#6366f1"}
+          />
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.filterBtn}
@@ -370,20 +453,24 @@ export default function LeadsListScreen() {
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20 }}
+            keyboardShouldPersistTaps="handled"
           >
+            {/* Assigned To — full-width searchable dropdown at top */}
+            <AssignedDropdown
+              value={tempFilters.assigned}
+              onChange={(v) => setTempFilters({ ...tempFilters, assigned: v })}
+              staffList={staffList}
+            />
+
             <FilterSection label="Source">
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipRow}>
-                  {/* All Sources chip */}
                   <TouchableOpacity
-                    key="src-all"
                     style={[styles.chip, tempFilters.source === "" && styles.chipActive]}
                     onPress={() => setTempFilters({ ...tempFilters, source: "" })}
                   >
-                    <Ionicons name="globe-outline" size={14} color={tempFilters.source === "" ? "#fff" : "#64748b"} />
-                    <Text style={[styles.chipText, tempFilters.source === "" && styles.chipTextActive]}>
-                      All Sources
-                    </Text>
+                    <Ionicons name="globe-outline" size={13} color={tempFilters.source === "" ? "#fff" : "#64748b"} />
+                    <Text style={[styles.chipText, tempFilters.source === "" && styles.chipTextActive]}>All Sources</Text>
                   </TouchableOpacity>
                   {apiSources.map((o) => {
                     const active = tempFilters.source === String(o.id);
@@ -393,14 +480,7 @@ export default function LeadsListScreen() {
                         style={[styles.chip, active && styles.chipActive]}
                         onPress={() => setTempFilters({ ...tempFilters, source: String(o.id) })}
                       >
-                        <Ionicons
-                          name={sourceIcon(o.name) as any}
-                          size={14}
-                          color={active ? "#fff" : "#64748b"}
-                        />
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                          {o.name}
-                        </Text>
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{o.name}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -411,16 +491,12 @@ export default function LeadsListScreen() {
             <FilterSection label="Status">
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipRow}>
-                  {/* All Statuses chip */}
                   <TouchableOpacity
-                    key="sta-all"
                     style={[styles.chip, tempFilters.status === "" && styles.chipActive]}
                     onPress={() => setTempFilters({ ...tempFilters, status: "" })}
                   >
                     <View style={[styles.dotSmall, { backgroundColor: "#64748b" }]} />
-                    <Text style={[styles.chipText, tempFilters.status === "" && styles.chipTextActive]}>
-                      All Statuses
-                    </Text>
+                    <Text style={[styles.chipText, tempFilters.status === "" && styles.chipTextActive]}>All Statuses</Text>
                   </TouchableOpacity>
                   {apiStatuses.map((o) => {
                     const active = tempFilters.status === String(o.id);
@@ -431,9 +507,7 @@ export default function LeadsListScreen() {
                         onPress={() => setTempFilters({ ...tempFilters, status: String(o.id) })}
                       >
                         <View style={[styles.dotSmall, { backgroundColor: o.color }]} />
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                          {o.name.trim()}
-                        </Text>
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{o.name.trim()}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -447,21 +521,10 @@ export default function LeadsListScreen() {
                   {UNIT_TYPE_OPTIONS.map((o) => (
                     <TouchableOpacity
                       key={o.id}
-                      style={[
-                        styles.chip,
-                        tempFilters.unit_type === o.id && styles.chipActive,
-                      ]}
-                      onPress={() =>
-                        setTempFilters({ ...tempFilters, unit_type: o.id })
-                      }
+                      style={[styles.chip, tempFilters.unit_type === o.id && styles.chipActive]}
+                      onPress={() => setTempFilters({ ...tempFilters, unit_type: o.id })}
                     >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          tempFilters.unit_type === o.id &&
-                            styles.chipTextActive,
-                        ]}
-                      >
+                      <Text style={[styles.chipText, tempFilters.unit_type === o.id && styles.chipTextActive]}>
                         {o.label}
                       </Text>
                     </TouchableOpacity>
@@ -580,14 +643,126 @@ export default function LeadsListScreen() {
 
       {filterModal}
 
-      {/* FAB — Add Lead */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push("/add-lead")}
-        activeOpacity={0.85}
+      {/* Assign Modal */}
+      <Modal
+        visible={showAssignModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAssignModal(false)}
       >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+        <View style={styles.modalOverlay}>
+          <View style={styles.assignSheet}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Assign Lead</Text>
+                <Text style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                  {assignLeadId ? "Quick assign" : `${selectedIds.size} leads selected`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAssignModal(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={22} color="#1e293b" />
+              </TouchableOpacity>
+            </View>
+
+            {assigning ? (
+              <View style={styles.assigningBox}>
+                <ActivityIndicator size="large" color="#6366f1" />
+                <Text style={styles.assigningText}>Assigning…</Text>
+              </View>
+            ) : (
+              <>
+                {/* Search bar */}
+                <View style={styles.assignSearchBox}>
+                  <Ionicons name="search" size={16} color="#94a3b8" />
+                  <TextInput
+                    style={styles.assignSearchInput}
+                    placeholder="Search agents…"
+                    placeholderTextColor="#94a3b8"
+                    value={assignSearch}
+                    onChangeText={setAssignSearch}
+                  />
+                  {assignSearch !== "" && (
+                    <TouchableOpacity onPress={() => setAssignSearch("")}>
+                      <Ionicons name="close-circle" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+                  {(() => {
+                    const filtered = staffList.filter((s) =>
+                      `${s.firstname} ${s.lastname} ${s.email}`
+                        .toLowerCase()
+                        .includes(assignSearch.toLowerCase())
+                    );
+                    if (filtered.length === 0)
+                      return <Text style={styles.noStaffText}>No agents found</Text>;
+                    return filtered.map((staff) => {
+                      const isCurrent = String(staff.staffid) === String(currentAssignedId);
+                      const color = avatarColor(staff.firstname);
+                      return (
+                        <TouchableOpacity
+                          key={staff.staffid}
+                          style={[styles.staffRow, isCurrent && styles.staffRowActive]}
+                          onPress={() => handleAssign(String(staff.staffid))}
+                        >
+                          <View style={[styles.staffAvatar, { backgroundColor: color + "22" }]}>
+                            <Text style={[styles.staffAvatarText, { color }]}>
+                              {staff.firstname.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.staffName, isCurrent && { color: "#6366f1" }]}>
+                              {staff.firstname} {staff.lastname}
+                            </Text>
+                            <Text style={styles.staffEmail}>{staff.email}</Text>
+                          </View>
+                          {isCurrent ? (
+                            <View style={styles.currentBadge}>
+                              <Ionicons name="checkmark" size={12} color="#fff" />
+                              <Text style={styles.currentBadgeText}>Assigned</Text>
+                            </View>
+                          ) : (
+                            <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    });
+                  })()}
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Bulk action bar */}
+      {isSelectMode && selectedIds.size > 0 && (
+        <View style={styles.bulkBar}>
+          <Text style={styles.bulkCount}>{selectedIds.size} selected</Text>
+          <TouchableOpacity style={styles.bulkAssignBtn} onPress={openBulkAssign}>
+            <Ionicons name="person-add-outline" size={16} color="#fff" />
+            <Text style={styles.bulkAssignText}>Assign</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.bulkCancelBtn} onPress={exitSelectMode}>
+            <Text style={styles.bulkCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* FAB — Add Lead */}
+      {!isSelectMode && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push("/add-lead")}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      <Toast msg={toastMsg} type={toastType} anim={toastAnim} />
     </View>
   );
 }
@@ -607,6 +782,209 @@ function FilterSection({
     </View>
   );
 }
+
+function AssignedDropdown({
+  value,
+  onChange,
+  staffList,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  staffList: StaffMember[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  const selected = staffList.find((s) => String(s.staffid) === value);
+  const selectedLabel = selected ? `${selected.firstname} ${selected.lastname}` : null;
+
+  const filtered = staffList.filter((s) =>
+    `${s.firstname} ${s.lastname} ${s.email}`.toLowerCase().includes(q.toLowerCase())
+  );
+
+  return (
+    <View style={adStyles.wrapper}>
+      <Text style={adStyles.sectionLabel}>ASSIGNED TO</Text>
+
+      {/* Trigger */}
+      <TouchableOpacity
+        style={[adStyles.trigger, open && adStyles.triggerOpen]}
+        onPress={() => { setOpen(!open); setQ(""); }}
+        activeOpacity={0.8}
+      >
+        {selected ? (
+          <View style={adStyles.triggerSelected}>
+            <View style={[adStyles.triggerAvatar, { backgroundColor: avatarColor(selected.firstname) + "22" }]}>
+              <Text style={[adStyles.triggerAvatarText, { color: avatarColor(selected.firstname) }]}>
+                {selected.firstname.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <Text style={adStyles.triggerName} numberOfLines={1}>{selectedLabel}</Text>
+          </View>
+        ) : (
+          <View style={adStyles.triggerSelected}>
+            <Ionicons name="people-outline" size={16} color="#94a3b8" />
+            <Text style={adStyles.triggerPlaceholder}>All Agents</Text>
+          </View>
+        )}
+        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={16} color="#94a3b8" />
+      </TouchableOpacity>
+
+      {/* Inline panel — no absolute, pushes content below */}
+      {open && (
+        <View style={adStyles.panel}>
+          {/* Search */}
+          <View style={adStyles.searchRow}>
+            <Ionicons name="search" size={14} color="#94a3b8" />
+            <TextInput
+              style={adStyles.searchInput}
+              placeholder="Search agents…"
+              placeholderTextColor="#94a3b8"
+              value={q}
+              onChangeText={setQ}
+              autoFocus
+            />
+            {q !== "" && (
+              <TouchableOpacity onPress={() => setQ("")}>
+                <Ionicons name="close-circle" size={15} color="#cbd5e1" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* All Agents row */}
+          <TouchableOpacity
+            style={[adStyles.row, value === "" && adStyles.rowSelected]}
+            onPress={() => { onChange(""); setOpen(false); setQ(""); }}
+          >
+            <View style={[adStyles.avatar, { backgroundColor: "#e2e8f0" }]}>
+              <Ionicons name="people" size={14} color="#64748b" />
+            </View>
+            <Text style={[adStyles.rowText, value === "" && adStyles.rowTextSelected]}>All Agents</Text>
+            {value === "" && <Ionicons name="checkmark" size={15} color="#6366f1" />}
+          </TouchableOpacity>
+
+          <ScrollView
+            style={adStyles.list}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+          >
+            {filtered.length === 0 ? (
+              <Text style={adStyles.empty}>No agents found</Text>
+            ) : (
+              filtered.map((s) => {
+                const sid = String(s.staffid);
+                const isSelected = value === sid;
+                const col = avatarColor(s.firstname);
+                return (
+                  <TouchableOpacity
+                    key={sid}
+                    style={[adStyles.row, isSelected && adStyles.rowSelected]}
+                    onPress={() => { onChange(sid); setOpen(false); setQ(""); }}
+                  >
+                    <View style={[adStyles.avatar, { backgroundColor: col + "22" }]}>
+                      <Text style={[adStyles.avatarText, { color: col }]}>
+                        {s.firstname.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[adStyles.rowText, isSelected && adStyles.rowTextSelected]} numberOfLines={1}>
+                        {s.firstname} {s.lastname}
+                      </Text>
+                      <Text style={adStyles.rowEmail} numberOfLines={1}>{s.email}</Text>
+                    </View>
+                    {isSelected && <Ionicons name="checkmark" size={15} color="#6366f1" />}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const adStyles = StyleSheet.create({
+  wrapper: { marginBottom: 20 },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#94a3b8",
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  trigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f8fafc",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  triggerOpen: { borderColor: "#6366f1", backgroundColor: "#eef2ff" },
+  triggerSelected: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  triggerAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  triggerAvatarText: { fontSize: 13, fontWeight: "700" },
+  triggerName: { fontSize: 14, fontWeight: "600", color: "#1e293b", flex: 1 },
+  triggerPlaceholder: { fontSize: 14, color: "#94a3b8" },
+  panel: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginTop: 6,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+    backgroundColor: "#fafafa",
+  },
+  searchInput: { flex: 1, fontSize: 14, color: "#1e293b" },
+  list: { maxHeight: 220 },
+  empty: { textAlign: "center", color: "#94a3b8", padding: 20, fontSize: 13 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f8fafc",
+  },
+  rowSelected: { backgroundColor: "#eef2ff" },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: { fontSize: 14, fontWeight: "700" },
+  rowText: { fontSize: 13, fontWeight: "500", color: "#1e293b" },
+  rowTextSelected: { color: "#6366f1", fontWeight: "700" },
+  rowEmail: { fontSize: 11, color: "#94a3b8", marginTop: 1 },
+});
 
 /* ── styles ── */
 const styles = StyleSheet.create({
@@ -879,6 +1257,12 @@ const styles = StyleSheet.create({
   },
 
   filterSection: { marginBottom: 22 },
+  filterGrid: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 18,
+    zIndex: 10,
+  },
   filterSectionLabel: {
     fontSize: 12,
     fontWeight: "700",
@@ -963,4 +1347,169 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+
+  /* select mode */
+  leadCardSelected: {
+    borderWidth: 1.5,
+    borderColor: "#6366f1",
+    backgroundColor: "#eef2ff",
+  },
+  checkbox: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: "#cbd5e1",
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  checkboxSelected: {
+    backgroundColor: "#6366f1",
+    borderColor: "#6366f1",
+  },
+  iconBtnAssign: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#eef2ff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+  },
+  selectBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#eef2ff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  selectBtnActive: {
+    backgroundColor: "#eef2ff",
+    borderColor: "#6366f1",
+  },
+
+  /* bulk action bar */
+  bulkBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1e293b",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 32,
+    gap: 10,
+  },
+  bulkCount: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  bulkAssignBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#6366f1",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  bulkAssignText: { fontSize: 14, fontWeight: "600", color: "#fff" },
+  bulkCancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  bulkCancelText: { fontSize: 14, color: "#94a3b8", fontWeight: "500" },
+
+  /* assign modal */
+  assignSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 40,
+    maxHeight: "65%",
+  },
+  assigningBox: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  assigningText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#64748b",
+  },
+  noStaffText: {
+    textAlign: "center",
+    color: "#94a3b8",
+    padding: 32,
+    fontSize: 14,
+  },
+  staffRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+    gap: 12,
+  },
+  staffAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  staffAvatarText: { fontSize: 17, fontWeight: "700" },
+  staffName: { fontSize: 14, fontWeight: "600", color: "#0f172a" },
+  staffEmail: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
+  staffRowActive: {
+    backgroundColor: "#eef2ff",
+    borderRadius: 12,
+    borderColor: "#c7d2fe",
+    borderWidth: 1,
+  },
+  assignSearchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    marginBottom: 12,
+  },
+  assignSearchInput: { flex: 1, fontSize: 14, color: "#1e293b" },
+  currentBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#6366f1",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  currentBadgeText: { fontSize: 11, fontWeight: "700", color: "#fff" },
+  agentDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  agentDotText: { fontSize: 10, fontWeight: "700", color: "#fff" },
 });

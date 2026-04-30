@@ -15,9 +15,10 @@ import {
 } from "react-native";
 
 const SCREEN_W = Dimensions.get("window").width;
-import { Lead, Property, defaultFilters } from "./types";
+import { Lead } from "./types";
 import { LeadStatus, fetchAllLeads, fetchDbLeads, fetchDeals, fetchLeadStatuses } from "./utils/api";
-import { fetchProperties } from "./utils/propertiesApi";
+import { fetchProjects } from "./utils/projectsApi";
+import { getStaffInfo } from "./utils/config";
 
 
 const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f59e0b","#10b981","#06b6d4","#3b82f6"];
@@ -29,7 +30,7 @@ export default function HomeScreen() {
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
   const [dbLeadsTotal, setDbLeadsTotal] = useState<number>(0);
   const [dealsTotal, setDealsTotal] = useState<number>(0);
-  const [properties, setProperties] = useState<Property[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
   const [apiStatuses, setApiStatuses] = useState<LeadStatus[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -38,7 +39,7 @@ export default function HomeScreen() {
   const loadData = async () => {
     const [leadsRes, propsRes, dbRes, dealsRes, statusRes] = await Promise.allSettled([
       fetchAllLeads({ limit: 100 }),
-      fetchProperties("Off-plan", defaultFilters, 1, 6),
+      fetchProjects(1, 6),
       fetchDbLeads({ limit: 1, page: 1 }),
       fetchDeals({ limit: 1, page: 1 }),
       fetchLeadStatuses(),
@@ -50,7 +51,7 @@ export default function HomeScreen() {
       setLatestLead(sorted[0] || null);
       setRecentLeads(sorted.slice(1, 7));
     }
-    if (propsRes.status === "fulfilled") setProperties(propsRes.value.data || []);
+    if (propsRes.status === "fulfilled") setProperties(propsRes.value.data ?? []);
     if (dbRes.status === "fulfilled") setDbLeadsTotal(Number(dbRes.value.total) || 0);
     if (dealsRes.status === "fulfilled") setDealsTotal(Number(dealsRes.value.total) || 0);
     if (statusRes.status === "fulfilled") setApiStatuses(statusRes.value);
@@ -71,12 +72,6 @@ export default function HomeScreen() {
     if (diff === 1) return "Yesterday";
     if (diff < 7) return `${diff}d ago`;
     return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  };
-
-  const formatPrice = (price: string) => {
-    const n = parseFloat(price);
-    if (!price || isNaN(n) || n === 0) return "Price on Request";
-    return `AED ${n.toLocaleString()}`;
   };
 
   const getPropStatusColor = (s: string) => {
@@ -107,7 +102,7 @@ export default function HomeScreen() {
   ];
 
   const QUICK = [
-    { label: "Todos", icon: "checkmark-done" as const, color: "#f59e0b", bg: "#fffbeb", route: "/todos-list" },
+    { label: "New To Do", icon: "checkmark-done" as const, color: "#f59e0b", bg: "#fffbeb", route: "/todos-list" },
     { label: "Calendar", icon: "calendar" as const, color: "#6366f1", bg: "#eef2ff", route: "/todos-list" },
     { label: "Properties", icon: "business" as const, color: "#06b6d4", bg: "#ecfeff", route: "/properties-list" },
     { label: "Profile", icon: "person-circle" as const, color: "#3b82f6", bg: "#eff6ff", route: "/profile" },
@@ -130,7 +125,7 @@ export default function HomeScreen() {
         <View style={styles.heroBar}>
           <View style={styles.heroBarLeft}>
             <Text style={styles.heroDate}>{todayStr}</Text>
-            <Text style={styles.heroGreet}>Hello there 👋</Text>
+            <Text style={styles.heroGreet}>Hello, {getStaffInfo()?.firstname ?? "there"} 👋</Text>
           </View>
           <TouchableOpacity style={styles.profileBtn} onPress={() => router.push("/profile")}>
             <Ionicons name="person" size={20} color="#6366f1" />
@@ -246,37 +241,41 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
-            {properties.map((p) => (
-              <TouchableOpacity
-                key={p.id}
-                style={styles.propCard}
-                onPress={() => router.push({ pathname: "/property-detail", params: { propertyId: p.id } })}
-                activeOpacity={0.88}
-              >
-                <Image source={{ uri: p.thumbnail }} style={styles.propImage} />
-                {/* gradient-like overlay */}
-                <View style={styles.propOverlay} />
-                <View style={[styles.propBadge, { backgroundColor: getPropStatusColor(p.property_status) }]}>
-                  <Text style={styles.propBadgeText}>{p.property_status}</Text>
-                </View>
-                <View style={styles.propInfo}>
-                  <Text style={styles.propName} numberOfLines={1}>{p.project_name}</Text>
-                  <View style={styles.propLocRow}>
-                    <Ionicons name="location-outline" size={11} color="#94a3b8" />
-                    <Text style={styles.propLoc} numberOfLines={1}>{p.location || p.bayut_location_name || "Dubai"}</Text>
+            {properties.map((p) => {
+              const imgUrl = p.s3_cover_url || p.cover_image_url?.url || "";
+              const status = p.sale_status || "Off-Plan";
+              const price = p.max_price_aed ? `AED ${Number(p.max_price_aed).toLocaleString()}` : "Price on Request";
+              return (
+                <TouchableOpacity
+                  key={p._id || p.id}
+                  style={styles.propCard}
+                  onPress={() => router.push({ pathname: "/property-detail", params: { propertyId: p.id } })}
+                  activeOpacity={0.88}
+                >
+                  <Image source={{ uri: imgUrl }} style={styles.propImage} />
+                  <View style={styles.propOverlay} />
+                  <View style={[styles.propBadge, { backgroundColor: getPropStatusColor(status) }]}>
+                    <Text style={styles.propBadgeText}>{status}</Text>
                   </View>
-                  <View style={styles.propFooter}>
-                    <Text style={styles.propPrice} numberOfLines={1}>{formatPrice(p.price)}</Text>
-                    {p.bedrooms ? (
-                      <View style={styles.bedBadge}>
-                        <Ionicons name="bed-outline" size={10} color="#6366f1" />
-                        <Text style={styles.bedText}>{p.bedrooms} Bed</Text>
-                      </View>
-                    ) : null}
+                  <View style={styles.propInfo}>
+                    <Text style={styles.propName} numberOfLines={1}>{p.name}</Text>
+                    <View style={styles.propLocRow}>
+                      <Ionicons name="location-outline" size={11} color="#94a3b8" />
+                      <Text style={styles.propLoc} numberOfLines={1}>{p.area || "Dubai"}</Text>
+                    </View>
+                    <View style={styles.propFooter}>
+                      <Text style={styles.propPrice} numberOfLines={1}>{price}</Text>
+                      {p.developer ? (
+                        <View style={styles.bedBadge}>
+                          <Ionicons name="business-outline" size={10} color="#6366f1" />
+                          <Text style={styles.bedText} numberOfLines={1}>{p.developer}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
       )}

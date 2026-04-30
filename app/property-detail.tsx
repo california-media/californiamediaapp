@@ -7,7 +7,6 @@ import * as Sharing from "expo-sharing";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Image,
   Modal,
@@ -21,11 +20,14 @@ import {
 import { PropertyDetails } from "./types";
 import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from "./utils/config";
 import { fetchPropertyById } from "./utils/propertiesApi";
+import { Toast } from "./components/Toast";
+import { useToast } from "./utils/useToast";
 
 const { width } = Dimensions.get("window");
 
 export default function PropertyDetailScreen() {
   const router = useRouter();
+  const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const params = useLocalSearchParams();
   const propertyId = params.propertyId as string;
   const [property, setProperty] = useState<PropertyDetails | null>(null);
@@ -116,10 +118,10 @@ export default function PropertyDetailScreen() {
           });
         }
       } else {
-        Alert.alert("Error", "Could not load the presentation. Please try again.");
+        showToast("Could not load the presentation. Please try again.", "error");
       }
     } catch {
-      Alert.alert("Error", "Failed to open the presentation.");
+      showToast("Failed to open the presentation.", "error");
     } finally {
       setPdfLoading(false);
     }
@@ -446,6 +448,7 @@ export default function PropertyDetailScreen() {
           )}
         </View>
       </Modal>
+      <Toast msg={toastMsg} type={toastType} anim={toastAnim} />
     </ScrollView>
   );
 }

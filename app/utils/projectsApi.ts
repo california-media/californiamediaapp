@@ -188,6 +188,30 @@ export const downloadBrochure = async (
   return downloaded.uri;
 };
 
+export const fetchProjects = async (
+  page: number = 1,
+  limit: number = 6,
+  filters: FilterParams = {},
+): Promise<ProjectsResponse> => {
+  try {
+    const params = new URLSearchParams();
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+    if (filters.search?.trim()) params.append("search", filters.search.trim());
+    if (filters.developers?.length) filters.developers.forEach((d) => params.append("developers", d));
+    if (filters.areas?.length) filters.areas.forEach((a) => params.append("areas", a));
+    if (filters.statuses?.length) filters.statuses.forEach((s) => params.append("statuses", s));
+    if (filters.payments?.length) filters.payments.forEach((p) => params.append("payments", p));
+
+    const url = `${PROJECTS_API}/projects?${params.toString()}`;
+    const data = await xhrGet(url);
+    return data;
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+    return { page, limit, totalPages: 0, totalProjects: 0, data: [] };
+  }
+};
+
 // Fetch single project by ID (accepts numeric id or MongoDB _id string)
 export const fetchProjectById = async (
   projectId: number | string,

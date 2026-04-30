@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   Modal,
   FlatList,
   KeyboardAvoidingView,
@@ -17,6 +16,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from './utils/config';
 import { DbLead } from './types';
+import { Toast } from './components/Toast';
+import { useToast } from './utils/useToast';
 
 interface Source { id: number; name: string; }
 interface LeadStatus { id: number; name: string; color: string; }
@@ -97,6 +98,7 @@ export default function AddDbLeadScreen() {
     visible: false, title: '', options: [], selected: '', onSelect: () => {},
   });
 
+  const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -143,8 +145,8 @@ export default function AddDbLeadScreen() {
     );
 
   const handleSubmit = async () => {
-    if (!fullName.trim()) { Alert.alert('Validation', 'Full name is required.'); return; }
-    if (!mobile.trim()) { Alert.alert('Validation', 'Mobile number is required.'); return; }
+    if (!fullName.trim()) { showToast('Full name is required.', 'error'); return; }
+    if (!mobile.trim()) { showToast('Mobile number is required.', 'error'); return; }
 
     setSaving(true);
     try {
@@ -163,24 +165,22 @@ export default function AddDbLeadScreen() {
       if (isEdit && existingLead) {
         const res = await apiPutForm(`/db_leads/${existingLead.id}`, body);
         if (res?.status) {
-          Alert.alert('Success', 'DB lead updated successfully.', [
-            { text: 'OK', onPress: () => router.back() },
-          ]);
+          showToast('DB lead updated successfully.', 'success');
+          setTimeout(() => router.back(), 1200);
         } else {
-          Alert.alert('Error', res?.message || 'Failed to update DB lead.');
+          showToast(res?.message || 'Failed to update DB lead.', 'error');
         }
       } else {
         const res = await apiPostForm('/db_leads/data', body);
         if (res?.status) {
-          Alert.alert('Success', 'DB lead added successfully.', [
-            { text: 'OK', onPress: () => router.back() },
-          ]);
+          showToast('DB lead added successfully.', 'success');
+          setTimeout(() => router.back(), 1200);
         } else {
-          Alert.alert('Error', res?.message || 'Failed to add DB lead.');
+          showToast(res?.message || 'Failed to add DB lead.', 'error');
         }
       }
     } catch {
-      Alert.alert('Error', 'Network error. Please try again.');
+      showToast('Network error. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -380,6 +380,7 @@ export default function AddDbLeadScreen() {
           </View>
         </View>
       </Modal>
+      <Toast msg={toastMsg} type={toastType} anim={toastAnim} />
     </KeyboardAvoidingView>
   );
 }

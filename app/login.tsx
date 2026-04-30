@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -16,6 +17,7 @@ import {
   getCrmApiUrl,
   getCrmCookie,
   getAuthToken,
+  getUserId,
   setCrmCookie,
   setUserId,
   setStaffInfo,
@@ -29,8 +31,32 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [brandingLogo, setBrandingLogo] = useState<string | null>(null);
+  const [brandingName, setBrandingName] = useState<string | null>(null);
+  const [brandingLoaded, setBrandingLoaded] = useState(false);
 
   const crmDomain = getCrmBaseUrl().replace(/^https?:\/\//, "");
+
+  useEffect(() => {
+    fetch(`${getCrmApiUrl()}/branding`, {
+      headers: {
+        Authorization: getAuthToken(),
+        Cookie: getCrmCookie(),
+        "X-User-Id": getUserId() || "1",
+        Accept: "application/json",
+      },
+    })
+      .then(async (r) => {
+        const text = await r.text();
+        try {
+          const d = JSON.parse(text);
+          if (d?.company_logo) setBrandingLogo(d.company_logo);
+          if (d?.companyname) setBrandingName(d.companyname);
+        } catch {}
+      })
+      .catch(() => {})
+      .finally(() => setBrandingLoaded(true));
+  }, []);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -87,12 +113,22 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={styles.inner}>
-        {/* Icon */}
-        <View style={styles.iconContainer}>
-          <Ionicons name="lock-closed-outline" size={48} color="#6366f1" />
+        {/* Logo */}
+        <View style={[styles.iconContainer, brandingLogo && styles.iconContainerLogo]}>
+          {!brandingLoaded ? (
+            <ActivityIndicator size="small" color="#6366f1" />
+          ) : brandingLogo ? (
+            <Image
+              source={{ uri: brandingLogo }}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <Ionicons name="lock-closed-outline" size={48} color="#6366f1" />
+          )}
         </View>
 
-        <Text style={styles.title}>Sign in</Text>
+        <Text style={styles.title}>{brandingName ? `Sign in to ${brandingName}` : "Sign in"}</Text>
 
         {/* CRM badge */}
         <View style={styles.serverBadge}>
@@ -207,6 +243,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "center",
     marginBottom: 24,
+  },
+  iconContainerLogo: {
+    backgroundColor: "transparent",
+  },
+  logoImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 22,
   },
   title: {
     fontSize: 28,
