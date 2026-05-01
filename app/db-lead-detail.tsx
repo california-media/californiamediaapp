@@ -436,9 +436,11 @@ export default function DbLeadDetailScreen() {
                     <TouchableOpacity style={styles.cardIconBtn} onPress={() => openEditNote(note)}>
                       <Ionicons name="create-outline" size={18} color="#6366f1" />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.cardIconBtn} onPress={() => confirmDeleteNote(note)}>
-                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                    </TouchableOpacity>
+                    {isAdmin && (
+                      <TouchableOpacity style={styles.cardIconBtn} onPress={() => confirmDeleteNote(note)}>
+                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                   <Text style={styles.cardBody}>{note.description}</Text>
                 </View>
@@ -481,9 +483,11 @@ export default function DbLeadDetailScreen() {
                         <TouchableOpacity onPress={() => openEditActivity(a)} style={styles.activityBtn}>
                           <Ionicons name="create-outline" size={14} color="#6366f1" />
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => confirmDeleteActivity(a)} style={styles.activityBtn}>
-                          <Ionicons name="trash-outline" size={14} color="#ef4444" />
-                        </TouchableOpacity>
+                        {isAdmin && (
+                          <TouchableOpacity onPress={() => confirmDeleteActivity(a)} style={styles.activityBtn}>
+                            <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                          </TouchableOpacity>
+                        )}
                       </View>
                     )}
                   </View>

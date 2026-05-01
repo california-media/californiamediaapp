@@ -15,9 +15,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Toast } from "./components/Toast";
 import { DbLead } from "./types";
-import { fetchDbLeads, fetchDbLeadSources, fetchDbLeadStatuses, fetchStaff } from "./utils/api";
+import { bulkAssignDbLeads, fetchDbLeads, fetchDbLeadSources, fetchDbLeadStatuses, fetchStaff } from "./utils/api";
 import type { LeadSource, LeadStatus, StaffMember } from "./utils/api";
+import { getStaffInfo } from "./utils/config";
+import { useToast } from "./utils/useToast";
 
 const AVATAR_COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
@@ -58,6 +61,17 @@ export default function DbLeadsListScreen() {
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const router = useRouter();
+  const { showToast, toastMsg, toastType, toastAnim } = useToast();
+  const isAdmin = getStaffInfo()?.admin === "1";
+
+  // ── Bulk / single assign state ────────────────────────────────────────────
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignLeadId, setAssignLeadId] = useState<string | null>(null);
+  const [currentAssignedId, setCurrentAssignedId] = useState<string>("");
+  const [assignSearch, setAssignSearch] = useState("");
+  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchDbLeadSources(), fetchDbLeadStatuses(), fetchStaff()]).then(([src, sta, staff]) => {
@@ -90,7 +104,6 @@ export default function DbLeadsListScreen() {
       if (refresh || pageNum === 1) {
         setLeads(newLeads);
       } else {
-        // Deduplicate by id to avoid duplicate key errors
         setLeads((prev) => {
           const seen = new Set(prev.map((l) => l.id));
           return [...prev, ...newLeads.filter((l) => !seen.has(l.id))];
@@ -140,6 +153,51 @@ export default function DbLeadsListScreen() {
     setShowFilterModal(false);
   };
 
+  // ── Select / assign helpers ───────────────────────────────────────────────
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const openQuickAssign = (id: string, assignedId: string = "") => {
+    setAssignLeadId(id);
+    setCurrentAssignedId(assignedId);
+    setAssignSearch("");
+    setShowAssignModal(true);
+  };
+
+  const openBulkAssign = () => {
+    setAssignLeadId(null);
+    setCurrentAssignedId("");
+    setAssignSearch("");
+    setShowAssignModal(true);
+  };
+
+  const handleAssign = async (staffId: string) => {
+    setAssigning(true);
+    const ids = assignLeadId ? [assignLeadId] : [...selectedIds];
+    const ok = await bulkAssignDbLeads(staffId, ids);
+    setAssigning(false);
+    if (ok) {
+      setShowAssignModal(false);
+      setAssignLeadId(null);
+      exitSelectMode();
+      loadLeads(1, true);
+      showToast(`DB Lead${ids.length > 1 ? "s" : ""} assigned successfully`, "success");
+    } else {
+      showToast("Failed to assign. Please try again.", "error");
+    }
+  };
+
   const handleCall = (phone: string) =>
     Linking.openURL(`tel:${phone.replace(/\D/g, "")}`).catch(() => alert("Could not call"));
 
@@ -158,21 +216,35 @@ export default function DbLeadsListScreen() {
     const statusColor = getStatusColor(item.status_name);
     const hasPhone = !!item.mobile_number;
     const budget = formatBudget(item.budget);
+    const isSelected = selectedIds.has(item.id);
 
     return (
       <TouchableOpacity
-        style={styles.leadCard}
-        onPress={() =>
-          router.push({ pathname: "/db-lead-detail", params: { lead: JSON.stringify(item) } })
-        }
+        style={[styles.leadCard, isSelected && styles.leadCardSelected]}
+        onPress={() => {
+          if (isSelectMode) { toggleSelect(item.id); return; }
+          router.push({ pathname: "/db-lead-detail", params: { lead: JSON.stringify(item) } });
+        }}
+        onLongPress={() => {
+          if (isAdmin && !isSelectMode) {
+            setIsSelectMode(true);
+            toggleSelect(item.id);
+          }
+        }}
         activeOpacity={0.72}
       >
         <View style={styles.cardTop}>
-          <View style={[styles.avatar, { backgroundColor: color + "22" }]}>
-            <Text style={[styles.avatarLetter, { color }]}>
-              {item.full_name?.charAt(0)?.toUpperCase() ?? "?"}
-            </Text>
-          </View>
+          {isSelectMode ? (
+            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+              {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+            </View>
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: color + "22" }]}>
+              <Text style={[styles.avatarLetter, { color }]}>
+                {item.full_name?.charAt(0)?.toUpperCase() ?? "?"}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.cardMeta}>
             <Text style={styles.leadName} numberOfLines={1}>{item.full_name}</Text>
@@ -184,24 +256,35 @@ export default function DbLeadsListScreen() {
             )}
           </View>
 
-          {hasPhone && (
-            <View style={styles.actionIcons}>
+          <View style={styles.actionIcons}>
+            {isAdmin && !isSelectMode && (
               <TouchableOpacity
-                style={styles.iconBtnCall}
-                onPress={(e) => { e.stopPropagation(); handleCall(item.mobile_number); }}
+                style={styles.iconBtnAssign}
+                onPress={(e) => { e.stopPropagation(); openQuickAssign(item.id, item.assigned ?? ""); }}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
-                <Ionicons name="call" size={15} color="#fff" />
+                <Ionicons name="person-add-outline" size={14} color="#6366f1" />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.iconBtnWa}
-                onPress={(e) => { e.stopPropagation(); handleWhatsApp(item.mobile_number); }}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <Ionicons name="logo-whatsapp" size={15} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          )}
+            )}
+            {hasPhone && !isSelectMode && (
+              <>
+                <TouchableOpacity
+                  style={styles.iconBtnCall}
+                  onPress={(e) => { e.stopPropagation(); handleCall(item.mobile_number); }}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="call" size={15} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.iconBtnWa}
+                  onPress={(e) => { e.stopPropagation(); handleWhatsApp(item.mobile_number); }}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="logo-whatsapp" size={15} color="#fff" />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
 
         <View style={styles.cardDivider} />
@@ -243,8 +326,11 @@ export default function DbLeadsListScreen() {
       </Animated.View>
 
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#1e293b" />
+        <TouchableOpacity
+          onPress={() => isSelectMode ? exitSelectMode() : router.back()}
+          style={styles.backBtn}
+        >
+          <Ionicons name={isSelectMode ? "close" : "arrow-back"} size={22} color={isSelectMode ? "#ef4444" : "#1e293b"} />
         </TouchableOpacity>
 
         <View style={styles.searchBox}>
@@ -262,6 +348,19 @@ export default function DbLeadsListScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {isAdmin && (
+          <TouchableOpacity
+            style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
+            onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}
+          >
+            <Ionicons
+              name={isSelectMode ? "checkmark-done" : "checkmark-circle-outline"}
+              size={20}
+              color="#6366f1"
+            />
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
           <Ionicons name="options-outline" size={22} color="#6366f1" />
@@ -308,7 +407,6 @@ export default function DbLeadsListScreen() {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
-            {/* Assigned To — full-width searchable dropdown at top */}
             <AssignedDropdown
               value={tempFilters.assigned}
               onChange={(v) => setTempFilters({ ...tempFilters, assigned: v })}
@@ -464,14 +562,125 @@ export default function DbLeadsListScreen() {
 
       {filterModal}
 
-      {/* FAB — Add DB Lead */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push("/add-db-lead")}
-        activeOpacity={0.85}
+      {/* Assign Modal */}
+      <Modal
+        visible={showAssignModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAssignModal(false)}
       >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+        <View style={styles.modalOverlay}>
+          <View style={styles.assignSheet}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Assign DB Lead</Text>
+                <Text style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                  {assignLeadId ? "Quick assign" : `${selectedIds.size} leads selected`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAssignModal(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={22} color="#1e293b" />
+              </TouchableOpacity>
+            </View>
+
+            {assigning ? (
+              <View style={styles.assigningBox}>
+                <ActivityIndicator size="large" color="#6366f1" />
+                <Text style={styles.assigningText}>Assigning…</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.assignSearchBox}>
+                  <Ionicons name="search" size={16} color="#94a3b8" />
+                  <TextInput
+                    style={styles.assignSearchInput}
+                    placeholder="Search agents…"
+                    placeholderTextColor="#94a3b8"
+                    value={assignSearch}
+                    onChangeText={setAssignSearch}
+                  />
+                  {assignSearch !== "" && (
+                    <TouchableOpacity onPress={() => setAssignSearch("")}>
+                      <Ionicons name="close-circle" size={16} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+                  {(() => {
+                    const filtered = staffList.filter((s) =>
+                      `${s.firstname} ${s.lastname} ${s.email}`
+                        .toLowerCase()
+                        .includes(assignSearch.toLowerCase())
+                    );
+                    if (filtered.length === 0)
+                      return <Text style={styles.noStaffText}>No agents found</Text>;
+                    return filtered.map((staff) => {
+                      const isCurrent = String(staff.staffid) === String(currentAssignedId);
+                      const color = avatarColor(staff.firstname);
+                      return (
+                        <TouchableOpacity
+                          key={staff.staffid}
+                          style={[styles.staffRow, isCurrent && styles.staffRowActive]}
+                          onPress={() => handleAssign(String(staff.staffid))}
+                        >
+                          <View style={[styles.staffAvatar, { backgroundColor: color + "22" }]}>
+                            <Text style={[styles.staffAvatarText, { color }]}>
+                              {staff.firstname.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.staffName, isCurrent && { color: "#6366f1" }]}>
+                              {staff.firstname} {staff.lastname}
+                            </Text>
+                            <Text style={styles.staffEmail}>{staff.email}</Text>
+                          </View>
+                          {isCurrent ? (
+                            <View style={styles.currentBadge}>
+                              <Ionicons name="checkmark" size={12} color="#fff" />
+                              <Text style={styles.currentBadgeText}>Assigned</Text>
+                            </View>
+                          ) : (
+                            <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    });
+                  })()}
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Bulk action bar */}
+      {isSelectMode && selectedIds.size > 0 && (
+        <View style={styles.bulkBar}>
+          <Text style={styles.bulkCount}>{selectedIds.size} selected</Text>
+          <TouchableOpacity style={styles.bulkAssignBtn} onPress={openBulkAssign}>
+            <Ionicons name="person-add-outline" size={16} color="#fff" />
+            <Text style={styles.bulkAssignText}>Assign</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.bulkCancelBtn} onPress={exitSelectMode}>
+            <Text style={styles.bulkCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* FAB — Add DB Lead */}
+      {!isSelectMode && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push("/add-db-lead")}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      <Toast msg={toastMsg} type={toastType} anim={toastAnim} />
     </View>
   );
 }
@@ -705,6 +914,8 @@ const styles = StyleSheet.create({
     shadowColor: "#64748b", shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
+  leadCardSelected: { borderWidth: 1.5, borderColor: "#6366f1", backgroundColor: "#eef2ff" },
+
   cardTop: { flexDirection: "row", alignItems: "center" },
   avatar: { width: 42, height: 42, borderRadius: 12, justifyContent: "center", alignItems: "center", marginRight: 10 },
   avatarLetter: { fontSize: 18, fontWeight: "700" },
@@ -713,6 +924,11 @@ const styles = StyleSheet.create({
   phoneRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   phoneText: { fontSize: 12, color: "#64748b" },
   actionIcons: { flexDirection: "row", gap: 6 },
+  iconBtnAssign: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: "#eef2ff", justifyContent: "center", alignItems: "center",
+    borderWidth: 1, borderColor: "#c7d2fe",
+  },
   iconBtnCall: {
     width: 32, height: 32, borderRadius: 10, backgroundColor: "#2563eb",
     justifyContent: "center", alignItems: "center",
@@ -737,6 +953,39 @@ const styles = StyleSheet.create({
   statusPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, maxWidth: 120 },
   statusDot: { width: 5, height: 5, borderRadius: 3 },
   statusLabel: { fontSize: 10, fontWeight: "600" },
+
+  // Select mode
+  checkbox: {
+    width: 26, height: 26, borderRadius: 7,
+    borderWidth: 2, borderColor: "#cbd5e1",
+    backgroundColor: "#fff", justifyContent: "center", alignItems: "center", marginRight: 10,
+  },
+  checkboxSelected: { backgroundColor: "#6366f1", borderColor: "#6366f1" },
+  selectBtn: {
+    width: 42, height: 42, borderRadius: 12,
+    backgroundColor: "#eef2ff", justifyContent: "center", alignItems: "center",
+    borderWidth: 1, borderColor: "#e2e8f0",
+  },
+  selectBtnActive: { backgroundColor: "#eef2ff", borderColor: "#6366f1" },
+
+  // Bulk bar
+  bulkBar: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "#1e293b",
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 10,
+  },
+  bulkCount: { flex: 1, fontSize: 14, fontWeight: "600", color: "#fff" },
+  bulkAssignBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "#6366f1", paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12,
+  },
+  bulkAssignText: { fontSize: 14, fontWeight: "600", color: "#fff" },
+  bulkCancelBtn: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  bulkCancelText: { fontSize: 14, color: "#94a3b8", fontWeight: "500" },
 
   emptyBox: { alignItems: "center", paddingTop: 60, paddingBottom: 40 },
   emptyTitle: { fontSize: 17, fontWeight: "600", color: "#1e293b", marginTop: 14 },
@@ -791,9 +1040,37 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute", bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: "#6366f1",
-    justifyContent: "center", alignItems: "center",
+    backgroundColor: "#6366f1", justifyContent: "center", alignItems: "center",
     shadowColor: "#6366f1", shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
   },
+
+  // Assign modal
+  assignSheet: {
+    backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, maxHeight: "65%",
+  },
+  assigningBox: { paddingVertical: 40, alignItems: "center" },
+  assigningText: { marginTop: 12, fontSize: 14, color: "#64748b" },
+  noStaffText: { textAlign: "center", color: "#94a3b8", padding: 32, fontSize: 14 },
+  staffRow: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: "#f1f5f9", gap: 12,
+  },
+  staffRowActive: { backgroundColor: "#eef2ff", borderRadius: 12, borderColor: "#c7d2fe", borderWidth: 1 },
+  staffAvatar: { width: 42, height: 42, borderRadius: 12, justifyContent: "center", alignItems: "center" },
+  staffAvatarText: { fontSize: 17, fontWeight: "700" },
+  staffName: { fontSize: 14, fontWeight: "600", color: "#0f172a" },
+  staffEmail: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
+  currentBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "#6366f1", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10,
+  },
+  currentBadgeText: { fontSize: 11, fontWeight: "700", color: "#fff" },
+  assignSearchBox: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "#f8fafc", borderRadius: 12, borderWidth: 1, borderColor: "#e2e8f0",
+    paddingHorizontal: 12, paddingVertical: 10, gap: 8, marginBottom: 12,
+  },
+  assignSearchInput: { flex: 1, fontSize: 14, color: "#1e293b" },
 });

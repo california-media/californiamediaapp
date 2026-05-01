@@ -18,6 +18,8 @@ const SCREEN_W = Dimensions.get("window").width;
 import { Lead } from "./types";
 import { LeadStatus, fetchAllLeads, fetchDbLeads, fetchDeals, fetchLeadStatuses } from "./utils/api";
 import { fetchProjects } from "./utils/projectsApi";
+import { fetchProperties } from "./utils/propertiesApi";
+import { defaultFilters } from "./types";
 import { getStaffInfo } from "./utils/config";
 
 
@@ -30,16 +32,41 @@ export default function HomeScreen() {
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
   const [dbLeadsTotal, setDbLeadsTotal] = useState<number>(0);
   const [dealsTotal, setDealsTotal] = useState<number>(0);
-  const [properties, setProperties] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);      // Reelly off-plan
+  const [crmProperties, setCrmProperties] = useState<any[]>([]); // CRM secondary
+  const [propsLoading, setPropsLoading] = useState(true);
+  const [crmPropsLoading, setCrmPropsLoading] = useState(true);
   const [apiStatuses, setApiStatuses] = useState<LeadStatus[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const router = useRouter();
 
+  const loadProjects = async () => {
+    try {
+      const res = await fetchProjects(1, 6);
+      console.log("[Projects] loaded", res?.data?.length ?? 0, "items");
+      setProperties(res?.data ?? []);
+    } catch (e) {
+      console.log("[Projects] error:", e);
+    } finally {
+      setPropsLoading(false);
+    }
+  };
+
+  const loadCrmProperties = async () => {
+    try {
+      const res = await fetchProperties("Off-plan", defaultFilters, 1, 6);
+      setCrmProperties(res?.data ?? []);
+    } catch {
+      // silent
+    } finally {
+      setCrmPropsLoading(false);
+    }
+  };
+
   const loadData = async () => {
-    const [leadsRes, propsRes, dbRes, dealsRes, statusRes] = await Promise.allSettled([
+    const [leadsRes, dbRes, dealsRes, statusRes] = await Promise.allSettled([
       fetchAllLeads({ limit: 100 }),
-      fetchProjects(1, 6),
       fetchDbLeads({ limit: 1, page: 1 }),
       fetchDeals({ limit: 1, page: 1 }),
       fetchLeadStatuses(),
@@ -51,16 +78,21 @@ export default function HomeScreen() {
       setLatestLead(sorted[0] || null);
       setRecentLeads(sorted.slice(1, 7));
     }
-    if (propsRes.status === "fulfilled") setProperties(propsRes.value.data ?? []);
     if (dbRes.status === "fulfilled") setDbLeadsTotal(Number(dbRes.value.total) || 0);
     if (dealsRes.status === "fulfilled") setDealsTotal(Number(dealsRes.value.total) || 0);
     if (statusRes.status === "fulfilled") setApiStatuses(statusRes.value);
     setInitialLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); loadProjects(); loadCrmProperties(); }, []);
 
-  const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setPropsLoading(true);
+    setCrmPropsLoading(true);
+    await Promise.all([loadData(), loadProjects(), loadCrmProperties()]);
+    setRefreshing(false);
+  };
 
   const getStatusColor = (name: string) =>
     apiStatuses.find((s) => s.name.trim() === name?.trim())?.color ?? "#64748b";
@@ -103,9 +135,9 @@ export default function HomeScreen() {
 
   const QUICK = [
     { label: "New To Do", icon: "checkmark-done" as const, color: "#f59e0b", bg: "#fffbeb", route: "/todos-list" },
-    { label: "Calendar", icon: "calendar" as const, color: "#6366f1", bg: "#eef2ff", route: "/todos-list" },
+    { label: "Calendar", icon: "calendar" as const, color: "#6366f1", bg: "#eef2ff", route: "/reminders-list" },
     { label: "Properties", icon: "business" as const, color: "#06b6d4", bg: "#ecfeff", route: "/properties-list" },
-    { label: "Profile", icon: "person-circle" as const, color: "#3b82f6", bg: "#eff6ff", route: "/profile" },
+    { label: "Off-Plan", icon: "business" as const, color: "#8b5cf6", bg: "#f5f3ff", route: "/off-plan-list" },
   ];
 
   return (
@@ -231,15 +263,25 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* ─────── PROPERTIES ─────── */}
-      {properties.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Properties</Text>
-            <TouchableOpacity onPress={() => router.push("/properties-list" as any)}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
+      {/* ─────── OFF-PLAN PROJECTS (Reelly) ─────── */}
+      <View style={styles.section}>
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Off-Plan Projects</Text>
+          <TouchableOpacity onPress={() => router.push("/off-plan-list" as any)}>
+            <Text style={styles.seeAll}>See All</Text>
+          </TouchableOpacity>
+        </View>
+        {propsLoading ? (
+          <View style={styles.propsPlaceholder}>
+            <Ionicons name="business-outline" size={32} color="#c7d2fe" />
+            <Text style={styles.propsPlaceholderText}>Loading projects…</Text>
           </View>
+        ) : properties.length === 0 ? (
+          <View style={styles.propsPlaceholder}>
+            <Ionicons name="business-outline" size={32} color="#c7d2fe" />
+            <Text style={styles.propsPlaceholderText}>No projects found</Text>
+          </View>
+        ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
             {properties.map((p) => {
               const imgUrl = p.s3_cover_url || p.cover_image_url?.url || "";
@@ -249,7 +291,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   key={p._id || p.id}
                   style={styles.propCard}
-                  onPress={() => router.push({ pathname: "/property-detail", params: { propertyId: p.id } })}
+                  onPress={() => router.push({ pathname: "/project-detail", params: { projectId: p.id } })}
                   activeOpacity={0.88}
                 >
                   <Image source={{ uri: imgUrl }} style={styles.propImage} />
@@ -277,8 +319,69 @@ export default function HomeScreen() {
               );
             })}
           </ScrollView>
+        )}
+      </View>
+
+      {/* ─────── CRM PROPERTIES ─────── */}
+      <View style={styles.section}>
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Properties</Text>
+          <TouchableOpacity onPress={() => router.push({ pathname: "/properties-list", params: { tab: "Secondary" } } as any)}>
+            <Text style={styles.seeAll}>See All</Text>
+          </TouchableOpacity>
         </View>
-      )}
+        {crmPropsLoading ? (
+          <View style={styles.propsPlaceholder}>
+            <Ionicons name="home-outline" size={32} color="#c7d2fe" />
+            <Text style={styles.propsPlaceholderText}>Loading properties…</Text>
+          </View>
+        ) : crmProperties.length === 0 ? (
+          <View style={styles.propsPlaceholder}>
+            <Ionicons name="home-outline" size={32} color="#c7d2fe" />
+            <Text style={styles.propsPlaceholderText}>No properties found</Text>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
+            {crmProperties.map((p) => {
+              const imgUrl = p.thumbnail || "";
+              const status = p.property_status || "Available";
+              const price = p.price && parseFloat(p.price) > 0
+                ? `AED ${Number(p.price).toLocaleString()}`
+                : "Price on Request";
+              return (
+                <TouchableOpacity
+                  key={String(p.id)}
+                  style={styles.propCard}
+                  onPress={() => router.push({ pathname: "/property-detail", params: { propertyId: p.id } })}
+                  activeOpacity={0.88}
+                >
+                  <Image source={{ uri: imgUrl }} style={styles.propImage} />
+                  <View style={styles.propOverlay} />
+                  <View style={[styles.propBadge, { backgroundColor: getPropStatusColor(status) }]}>
+                    <Text style={styles.propBadgeText}>{status}</Text>
+                  </View>
+                  <View style={styles.propInfo}>
+                    <Text style={styles.propName} numberOfLines={1}>{p.project_name}</Text>
+                    <View style={styles.propLocRow}>
+                      <Ionicons name="location-outline" size={11} color="#94a3b8" />
+                      <Text style={styles.propLoc} numberOfLines={1}>{p.location || p.bayut_location_name || "Dubai"}</Text>
+                    </View>
+                    <View style={styles.propFooter}>
+                      <Text style={styles.propPrice} numberOfLines={1}>{price}</Text>
+                      {p.property_type ? (
+                        <View style={styles.bedBadge}>
+                          <Ionicons name="home-outline" size={10} color="#6366f1" />
+                          <Text style={styles.bedText} numberOfLines={1}>{p.property_type}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
 
       {/* ─────── RECENT LEADS ─────── */}
       <View style={[styles.section, { marginBottom: 100 }]}>
@@ -571,6 +674,10 @@ const styles = StyleSheet.create({
   // ── Empty ──
   emptyBox: { paddingVertical: 36, alignItems: "center" },
   emptyText: { fontSize: 14, color: "#94a3b8", marginTop: 10 },
+
+  // ── Properties placeholder ──
+  propsPlaceholder: { paddingVertical: 28, alignItems: "center", backgroundColor: "#fff", borderRadius: 16 },
+  propsPlaceholderText: { fontSize: 13, color: "#94a3b8", marginTop: 8 },
 
   // ── Bottom nav ──
   bottomNav: {

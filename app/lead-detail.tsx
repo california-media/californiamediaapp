@@ -786,12 +786,14 @@ export default function LeadDetailScreen() {
                     >
                       <Ionicons name="create-outline" size={18} color="#6366f1" />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.cardIconBtn}
-                      onPress={() => confirmDeleteNote(note)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                    </TouchableOpacity>
+                    {isAdmin && (
+                      <TouchableOpacity
+                        style={styles.cardIconBtn}
+                        onPress={() => confirmDeleteNote(note)}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                   <Text style={styles.cardBody}>{note.description}</Text>
                 </View>
@@ -854,12 +856,14 @@ export default function LeadDetailScreen() {
                     >
                       <Ionicons name="create-outline" size={18} color="#6366f1" />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.cardIconBtn}
-                      onPress={() => confirmDeleteReminder(r)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                    </TouchableOpacity>
+                    {isAdmin && (
+                      <TouchableOpacity
+                        style={styles.cardIconBtn}
+                        onPress={() => confirmDeleteReminder(r)}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                   <Text style={styles.cardBody}>{r.description}</Text>
                 </View>

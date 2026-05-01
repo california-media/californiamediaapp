@@ -200,20 +200,6 @@ export default function PropertiesListScreen() {
     </View>
   );
 
-  const ErrorStateComponent = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
-      <Text style={styles.emptyTitle}>Something Went Wrong</Text>
-      <Text style={styles.emptyText}>
-        {error || "Failed to load properties"}
-      </Text>
-      <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
-        <Ionicons name="refresh-outline" size={20} color="#fff" />
-        <Text style={styles.retryButtonText}>Try Again</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   // Header rendered as plain JSX (not a sub-component) to prevent TextInput focus loss on re-render
   const header = (
     <>
@@ -230,7 +216,6 @@ export default function PropertiesListScreen() {
           <Ionicons name="search" size={20} color="#94a3b8" />
           <TextInput
             style={styles.searchInput}
-            // placeholder={`Search ${activeTab} properties...`}
             placeholder={
               filteredProperties.length > 0
                 ? `Search ${filteredProperties.length} of ${totalResults || filteredProperties.length} properties`
@@ -318,7 +303,6 @@ export default function PropertiesListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Error State */}
       {error && (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={48} color="#ef4444" />
@@ -329,7 +313,6 @@ export default function PropertiesListScreen() {
         </View>
       )}
 
-      {/* Properties List with integrated header */}
       {header}
       <FlatList
         data={filteredProperties}
@@ -482,33 +465,6 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: "#fff",
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  statsText: {
-    fontSize: 13,
-    color: "#64748b",
-    fontWeight: "500",
-  },
-  clearFiltersChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#e0e7ff",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
-  },
-  clearFiltersChipText: {
-    fontSize: 12,
-    color: "#6366f1",
-    fontWeight: "500",
   },
   listContainer: {
     paddingBottom: 20,

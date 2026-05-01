@@ -14,6 +14,25 @@ export const fetchStaff = async (): Promise<StaffMember[]> => {
   } catch { return []; }
 };
 
+export const bulkAssignDbLeads = async (staffId: string, dbLeadIds: string[]): Promise<boolean> => {
+  try {
+    const form = new FormData();
+    form.append("assigned", staffId);
+    form.append("db_lead_ids", dbLeadIds.join(","));
+    const res = await fetch(`${getCrmApiUrl()}/db_leads_bulk_assign/data`, {
+      method: "POST",
+      headers: {
+        Authorization: getAuthToken(),
+        Cookie: getCrmCookie(),
+        "X-User-Id": getUserId(),
+        Accept: "application/json",
+      },
+      body: form,
+    });
+    return res.ok;
+  } catch { return false; }
+};
+
 export const bulkAssignLeads = async (staffId: string, leadIds: string[]): Promise<boolean> => {
   try {
     const form = new FormData();

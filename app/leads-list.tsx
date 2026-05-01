@@ -19,6 +19,7 @@ import { Toast } from "./components/Toast";
 import { useToast } from "./utils/useToast";
 import { Lead } from "./types";
 import { LeadSource, LeadStatus, StaffMember, bulkAssignLeads, fetchAllLeads, fetchLeadSources, fetchLeadStatuses, fetchStaff } from "./utils/api";
+import { getStaffInfo } from "./utils/config";
 
 
 const UNIT_TYPE_OPTIONS = [
@@ -84,6 +85,7 @@ export default function LeadsListScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const router = useRouter();
+  const isAdmin = getStaffInfo()?.admin === "1";
 
   const loadLeads = async (
     pageNum: number = 1,
@@ -268,7 +270,7 @@ export default function LeadsListScreen() {
           }
         }}
         onLongPress={() => {
-          if (!isSelectMode) {
+          if (isAdmin && !isSelectMode) {
             setIsSelectMode(true);
             toggleSelect(item.id);
           }
@@ -300,7 +302,7 @@ export default function LeadsListScreen() {
           </View>
 
           <View style={styles.actionIcons}>
-            {!isSelectMode && (
+            {isAdmin && !isSelectMode && (
               <TouchableOpacity
                 style={styles.iconBtnAssign}
                 onPress={(e) => { e.stopPropagation(); openQuickAssign(item.id, item.assigned); }}
@@ -386,16 +388,18 @@ export default function LeadsListScreen() {
           )}
         </View>
 
-        <TouchableOpacity
-          style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
-          onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}
-        >
-          <Ionicons
-            name={isSelectMode ? "checkmark-done" : "checkmark-circle-outline"}
-            size={20}
-            color={isSelectMode ? "#6366f1" : "#6366f1"}
-          />
-        </TouchableOpacity>
+        {isAdmin && (
+          <TouchableOpacity
+            style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
+            onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}
+          >
+            <Ionicons
+              name={isSelectMode ? "checkmark-done" : "checkmark-circle-outline"}
+              size={20}
+              color="#6366f1"
+            />
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.filterBtn}
