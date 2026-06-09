@@ -63,6 +63,7 @@ export default function DbLeadsListScreen() {
   const router = useRouter();
   const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const isAdmin = getStaffInfo()?.admin === "1";
+  const canAssign = isAdmin || getStaffInfo()?.is_team_manager === true;
 
   // ── Bulk / single assign state ────────────────────────────────────────────
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -226,7 +227,7 @@ export default function DbLeadsListScreen() {
           router.push({ pathname: "/db-lead-detail", params: { lead: JSON.stringify(item) } });
         }}
         onLongPress={() => {
-          if (isAdmin && !isSelectMode) {
+          if (canAssign && !isSelectMode) {
             setIsSelectMode(true);
             toggleSelect(item.id);
           }
@@ -257,7 +258,7 @@ export default function DbLeadsListScreen() {
           </View>
 
           <View style={styles.actionIcons}>
-            {isAdmin && !isSelectMode && (
+            {canAssign && !isSelectMode && (
               <TouchableOpacity
                 style={styles.iconBtnAssign}
                 onPress={(e) => { e.stopPropagation(); openQuickAssign(item.id, item.assigned ?? ""); }}
@@ -349,7 +350,7 @@ export default function DbLeadsListScreen() {
           )}
         </View>
 
-        {isAdmin && (
+        {canAssign && (
           <TouchableOpacity
             style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
             onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}

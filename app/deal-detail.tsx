@@ -5,7 +5,7 @@ import { useState, useCallback } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Deal } from "./types";
 import { fetchDealById } from "./utils/api";
-import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId } from "./utils/config";
+import { getAuthToken, getCrmApiUrl, getCrmCookie, getUserId, getStaffInfo } from "./utils/config";
 import { Toast } from "./components/Toast";
 import { useToast } from "./utils/useToast";
 
@@ -36,6 +36,8 @@ export default function DealDetailScreen() {
   const { deal: dealParam } = useLocalSearchParams<{ deal: string }>();
   const [deal, setDeal] = useState<Deal>(JSON.parse(dealParam ?? "{}"));
   const [deleting, setDeleting] = useState(false);
+  const isAdmin = getStaffInfo()?.admin === "1";
+  const isTeamManager = getStaffInfo()?.is_team_manager === true;
 
   useFocusEffect(
     useCallback(() => {
@@ -115,8 +117,8 @@ export default function DealDetailScreen() {
           </Text>
         </View>
 
-        {/* Client call / WA */}
-        {deal.client_phone ? (
+        {/* Client call / WA — hidden from team managers */}
+        {deal.client_phone && !isTeamManager ? (
           <View style={styles.heroActions}>
             <TouchableOpacity
               style={styles.actionBtn}
@@ -147,8 +149,8 @@ export default function DealDetailScreen() {
 
         <Section title="Client Info">
           <Row icon="person-outline" label="Name" value={deal.client_name || "—"} />
-          <Row icon="call-outline" label="Phone" value={deal.client_phone || "—"} />
-          <Row icon="mail-outline" label="Email" value={deal.client_email || "—"} />
+          {!isTeamManager && <Row icon="call-outline" label="Phone" value={deal.client_phone || "—"} />}
+          {!isTeamManager && <Row icon="mail-outline" label="Email" value={deal.client_email || "—"} />}
           <Row icon="ribbon-outline" label="Classification" value={deal.client_classification || "—"} />
           <Row icon="pulse-outline" label="Activity" value={deal.client_activity || "—"} />
           <Row icon="globe-outline" label="Country" value={deal.client_country || "—"} />
@@ -196,22 +198,24 @@ export default function DealDetailScreen() {
           <Row icon="alert-circle-outline" label="Unpaid" value={fmt(deal.unpaid_amount)} />
         </Section>
 
-        {/* Delete */}
-        <TouchableOpacity
-          style={[styles.deleteBtn, deleting && { opacity: 0.6 }]}
-          onPress={handleDelete}
-          disabled={deleting}
-          activeOpacity={0.8}
-        >
-          {deleting ? (
-            <ActivityIndicator size="small" color="#ef4444" />
-          ) : (
-            <>
-              <Ionicons name="trash-outline" size={18} color="#ef4444" />
-              <Text style={styles.deleteBtnText}>Delete Deal</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {/* Delete — admin only */}
+        {isAdmin && (
+          <TouchableOpacity
+            style={[styles.deleteBtn, deleting && { opacity: 0.6 }]}
+            onPress={handleDelete}
+            disabled={deleting}
+            activeOpacity={0.8}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color="#ef4444" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                <Text style={styles.deleteBtnText}>Delete Deal</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
       </ScrollView>
       <Toast msg={toastMsg} type={toastType} anim={toastAnim} />

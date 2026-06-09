@@ -86,6 +86,7 @@ export default function LeadsListScreen() {
   const { showToast, toastMsg, toastType, toastAnim } = useToast();
   const router = useRouter();
   const isAdmin = getStaffInfo()?.admin === "1";
+  const canAssign = isAdmin || getStaffInfo()?.is_team_manager === true;
 
   const loadLeads = async (
     pageNum: number = 1,
@@ -270,7 +271,7 @@ export default function LeadsListScreen() {
           }
         }}
         onLongPress={() => {
-          if (isAdmin && !isSelectMode) {
+          if (canAssign && !isSelectMode) {
             setIsSelectMode(true);
             toggleSelect(item.id);
           }
@@ -302,7 +303,7 @@ export default function LeadsListScreen() {
           </View>
 
           <View style={styles.actionIcons}>
-            {isAdmin && !isSelectMode && (
+            {canAssign && !isSelectMode && (
               <TouchableOpacity
                 style={styles.iconBtnAssign}
                 onPress={(e) => { e.stopPropagation(); openQuickAssign(item.id, item.assigned); }}
@@ -388,7 +389,7 @@ export default function LeadsListScreen() {
           )}
         </View>
 
-        {isAdmin && (
+        {canAssign && (
           <TouchableOpacity
             style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
             onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}

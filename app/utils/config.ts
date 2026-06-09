@@ -19,6 +19,7 @@ export interface StaffInfo {
   admin: string;
   role: string;
   last_login: string;
+  is_team_manager?: boolean;
 }
 
 // Static API token — never changes, identifies the app to the CRM
