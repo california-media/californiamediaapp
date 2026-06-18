@@ -133,7 +133,7 @@ export default function TodosListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [activeTab, setActiveTab] = useState<FilterTab>("pending");
 
   // modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -178,7 +178,7 @@ export default function TodosListScreen() {
 
   const openEdit = (todo: Todo) => {
     setEditingTodo(todo);
-    setInputText(todo.description);
+    setInputText((todo.description || "").replace(/<br\s*\/?>\n?/gi, "\n").replace(/<[^>]+>/g, ""));
     setModalVisible(true);
     setTimeout(() => inputRef.current?.focus(), 100);
   };
@@ -301,7 +301,7 @@ export default function TodosListScreen() {
               style={[styles.desc, isDone && styles.descDone]}
               numberOfLines={2}
             >
-              {item.description || "No description"}
+              {(item.description || "No description").replace(/<br\s*\/?>\n?/gi, "\n").replace(/<[^>]+>/g, "")}
             </Text>
             <View style={styles.metaRow}>
               <Ionicons name="calendar-outline" size={11} color="#94a3b8" />
@@ -430,7 +430,7 @@ export default function TodosListScreen() {
 
       {/* Filter tabs */}
       <View style={styles.tabRow}>
-        {(["all", "pending", "done"] as FilterTab[]).map((tab) => (
+        {(["pending", "done", "all"] as FilterTab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}

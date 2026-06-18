@@ -49,31 +49,42 @@ export const normalizeCrmUrl = (input: string): string => {
   return url;
 };
 
+let _initPromise: Promise<{ crmUrl: string | null; authToken: string | null; userId: string | null }> | null = null;
+
 /** Load saved config from AsyncStorage and populate the in-memory cache. Call once at app startup. */
 export const initConfig = async (): Promise<{
   crmUrl: string | null;
   authToken: string | null;
   userId: string | null;
 }> => {
-  const [crmUrl, authToken, userId, storedCookie, staffInfoJson] =
-    await Promise.all([
-      AsyncStorage.getItem(KEYS.CRM_BASE_URL),
-      AsyncStorage.getItem(KEYS.AUTH_TOKEN),
-      AsyncStorage.getItem(KEYS.USER_ID),
-      AsyncStorage.getItem(KEYS.CRM_COOKIE),
-      AsyncStorage.getItem(KEYS.STAFF_INFO),
-    ]);
+  if (_initPromise) return _initPromise;
 
-  if (crmUrl) _crmBaseUrl = crmUrl;
-  _authToken = STATIC_TOKEN;
-  if (storedCookie) _crmCookie = storedCookie;
-  if (userId) _userId = userId;
-  if (staffInfoJson) {
-    try { _staffInfo = JSON.parse(staffInfoJson); } catch {}
-  }
+  _initPromise = (async () => {
+    const [crmUrl, authToken, userId, storedCookie, staffInfoJson] =
+      await Promise.all([
+        AsyncStorage.getItem(KEYS.CRM_BASE_URL),
+        AsyncStorage.getItem(KEYS.AUTH_TOKEN),
+        AsyncStorage.getItem(KEYS.USER_ID),
+        AsyncStorage.getItem(KEYS.CRM_COOKIE),
+        AsyncStorage.getItem(KEYS.STAFF_INFO),
+      ]);
 
-  return { crmUrl, authToken, userId };
+    if (crmUrl) _crmBaseUrl = crmUrl;
+    _authToken = STATIC_TOKEN;
+    if (storedCookie) _crmCookie = storedCookie;
+    if (userId) _userId = userId;
+    if (staffInfoJson) {
+      try { _staffInfo = JSON.parse(staffInfoJson); } catch {}
+    }
+
+    return { crmUrl, authToken, userId };
+  })();
+
+  return _initPromise;
 };
+
+/** Reset init promise — call after login/logout so next initConfig re-reads AsyncStorage. */
+export const resetInitPromise = () => { _initPromise = null; };
 
 /** Save CRM URL (normalised) and update the in-memory cache. */
 export const setCrmUrl = async (raw: string): Promise<void> => {
@@ -127,6 +138,7 @@ export const setStaffInfo = async (info: StaffInfo): Promise<void> => {
 
 /** Clear everything (logout / change server). */
 export const clearConfig = async (): Promise<void> => {
+  _initPromise = null;
   _crmBaseUrl = "";
   _authToken = STATIC_TOKEN;
   _crmCookie = BOOTSTRAP_COOKIE;
@@ -143,6 +155,7 @@ export const clearConfig = async (): Promise<void> => {
 
 /** Logout — clears user session but keeps the server URL. */
 export const logout = async (): Promise<void> => {
+  _initPromise = null;
   _authToken = STATIC_TOKEN;
   _userId = "";
   _crmCookie = BOOTSTRAP_COOKIE;

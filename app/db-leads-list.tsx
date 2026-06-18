@@ -318,76 +318,6 @@ export default function DbLeadsListScreen() {
     );
   };
 
-  /* ── Header ── */
-  const ListHeader = () => (
-    <>
-      <Animated.View style={[styles.successBanner, { opacity: fadeAnim }]}>
-        <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-        <Text style={styles.successText}>Filters applied</Text>
-      </Animated.View>
-
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          onPress={() => isSelectMode ? exitSelectMode() : router.back()}
-          style={styles.backBtn}
-        >
-          <Ionicons name={isSelectMode ? "close" : "arrow-back"} size={22} color={isSelectMode ? "#ef4444" : "#1e293b"} />
-        </TouchableOpacity>
-
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color="#94a3b8" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search DB leads…"
-            placeholderTextColor="#94a3b8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery !== "" && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={18} color="#94a3b8" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {canAssign && (
-          <TouchableOpacity
-            style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
-            onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}
-          >
-            <Ionicons
-              name={isSelectMode ? "checkmark-done" : "checkmark-circle-outline"}
-              size={20}
-              color="#6366f1"
-            />
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
-          <Ionicons name="options-outline" size={22} color="#6366f1" />
-          {hasActiveFilters() && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.statsRow}>
-        <Text style={styles.statsText}>
-          {leads.length > 0
-            ? `${leads.length} of ${totalResults || leads.length} DB leads`
-            : "No DB leads found"}
-        </Text>
-        {hasActiveFilters() && (
-          <TouchableOpacity style={styles.clearChip} onPress={clearFilters}>
-            <Ionicons name="close-circle" size={13} color="#6366f1" />
-            <Text style={styles.clearChipText}>Clear filters</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </>
-  );
 
   /* ── Filter modal ── */
   const filterModal = (
@@ -507,17 +437,75 @@ export default function DbLeadsListScreen() {
     </Modal>
   );
 
-  if (loading && leads.length === 0) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={styles.loadingText}>Loading DB leads…</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
+      <Animated.View style={[styles.successBanner, { opacity: fadeAnim }]}>
+        <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+        <Text style={styles.successText}>Filters applied</Text>
+      </Animated.View>
+
+      {/* Top bar — outside FlatList so TextInput never unmounts on re-render */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          onPress={() => isSelectMode ? exitSelectMode() : router.back()}
+          style={styles.backBtn}
+        >
+          <Ionicons name={isSelectMode ? "close" : "arrow-back"} size={22} color={isSelectMode ? "#ef4444" : "#1e293b"} />
+        </TouchableOpacity>
+
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={18} color="#94a3b8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search DB leads…"
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery !== "" && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {canAssign && (
+          <TouchableOpacity
+            style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
+            onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}
+          >
+            <Ionicons
+              name={isSelectMode ? "checkmark-done" : "checkmark-circle-outline"}
+              size={20}
+              color="#6366f1"
+            />
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
+          <Ionicons name="options-outline" size={22} color="#6366f1" />
+          {hasActiveFilters() && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.statsRow}>
+        <Text style={styles.statsText}>
+          {leads.length > 0
+            ? `${leads.length} of ${totalResults || leads.length} DB leads`
+            : "No DB leads found"}
+        </Text>
+        {hasActiveFilters() && (
+          <TouchableOpacity style={styles.clearChip} onPress={clearFilters}>
+            <Ionicons name="close-circle" size={13} color="#6366f1" />
+            <Text style={styles.clearChipText}>Clear filters</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {error && (
         <View style={styles.errorBox}>
           <Ionicons name="alert-circle" size={40} color="#ef4444" />
@@ -532,7 +520,6 @@ export default function DbLeadsListScreen() {
         data={leads}
         keyExtractor={(item, index) => `dbld-${item.id}-${index}`}
         renderItem={renderCard}
-        ListHeaderComponent={<ListHeader />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
@@ -549,12 +536,16 @@ export default function DbLeadsListScreen() {
           ) : null
         }
         ListEmptyComponent={
-          !loading && !error ? (
+          loading ? (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator size="large" color="#6366f1" />
+            </View>
+          ) : !error ? (
             <View style={styles.emptyBox}>
               <Ionicons name="server-outline" size={60} color="#cbd5e1" />
               <Text style={styles.emptyTitle}>No DB Leads Found</Text>
               <Text style={styles.emptySubtitle}>
-                {hasActiveFilters() ? "Try adjusting your filters" : "Pull down to refresh"}
+                {hasActiveFilters() || searchQuery ? "Try adjusting your search or filters" : "Pull down to refresh"}
               </Text>
             </View>
           ) : null

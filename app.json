@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "MyDesk",
-    "slug": "app-firebase",
+    "name": "CRM",
+    "slug": "california-media",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "mydesk",
+    "icon": "./assets/images/logo.png",
+    "scheme": "californiamedia",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.californiamedia.mydesk",
-      "buildNumber": "8",
+      "bundleIdentifier": "ae.californiamedia.crm",
+      "buildNumber": "14",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload and share images.",
@@ -35,7 +35,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.californiamedia.mydesk"
+      "package": "ae.californiamedia.crm"
     },
     "web": {
       "output": "static",
@@ -63,8 +63,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "474fef3d-3b5c-418b-9159-a2446bbc8f5b"
+        "projectId": "d771165e-0599-4af1-9f62-a87f97da1928"
       }
-    }
+    },
+    "owner": "asthajain22"
   }
 }

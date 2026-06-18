@@ -58,7 +58,7 @@ export default function ConnectScreen() {
         {/* Logo */}
         <View style={styles.iconContainer}>
           <Image
-            source={require("../assets/images/icon.png")}
+            source={require("../assets/images/logo.png")}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -101,7 +101,7 @@ export default function ConnectScreen() {
           </View>
         ) : null}
 
-        <Text style={styles.hint}>Example: crm.mydesk.ae</Text>
+        <Text style={styles.hint}>Example: crm.californiamedia.ae</Text>
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}

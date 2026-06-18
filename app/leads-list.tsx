@@ -22,18 +22,6 @@ import { LeadSource, LeadStatus, StaffMember, bulkAssignLeads, fetchAllLeads, fe
 import { getStaffInfo } from "./utils/config";
 
 
-const UNIT_TYPE_OPTIONS = [
-  { id: "", label: "All Types" },
-  { id: "Studio", label: "Studio" },
-  { id: "1BR", label: "1 Bedroom" },
-  { id: "2BR", label: "2 Bedrooms" },
-  { id: "3BR", label: "3 Bedrooms" },
-  { id: "4BR", label: "4 Bedrooms" },
-  { id: "5+BR", label: "5+ Bedrooms" },
-  { id: "Villa", label: "Villa" },
-  { id: "Townhouse", label: "Townhouse" },
-  { id: "Penthouse", label: "Penthouse" },
-];
 
 // Consistent avatar color per initial letter
 const AVATAR_COLORS = [
@@ -76,7 +64,6 @@ export default function LeadsListScreen() {
   const [filters, setFilters] = useState({
     source: "",
     status: "",
-    unit_type: "",
     assigned: "",
     sort_by: "dateadded",
     sort_order: "DESC" as "ASC" | "DESC",
@@ -104,7 +91,7 @@ export default function LeadsListScreen() {
       if (searchQuery) params.search = searchQuery;
       if (currentFilters.source) params.source = currentFilters.source;
       if (currentFilters.status) params.status = currentFilters.status;
-      if (currentFilters.unit_type) params.unit_type = currentFilters.unit_type;
+
       if (currentFilters.assigned) params.assigned = currentFilters.assigned;
       params.sort_by = currentFilters.sort_by;
       params.sort_order = currentFilters.sort_order;
@@ -130,7 +117,7 @@ export default function LeadsListScreen() {
   useEffect(() => {
     Promise.all([fetchLeadSources(), fetchLeadStatuses(), fetchStaff()]).then(([src, sta, staff]) => {
       setApiSources(src);
-      setApiStatuses(sta);
+      setApiStatuses(sta.filter((s) => s.name.trim().toLowerCase() !== "database"));
       setStaffList(staff);
     });
   }, []);
@@ -175,7 +162,6 @@ export default function LeadsListScreen() {
     const reset = {
       source: "",
       status: "",
-      unit_type: "",
       assigned: "",
       sort_by: "dateadded",
       sort_order: "DESC" as const,
@@ -356,83 +342,6 @@ export default function LeadsListScreen() {
     );
   };
 
-  /* ── Header ── */
-  const ListHeader = () => (
-    <>
-      <Animated.View style={[styles.successBanner, { opacity: fadeAnim }]}>
-        <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-        <Text style={styles.successText}>Filters applied</Text>
-      </Animated.View>
-
-      {/* Sticky search bar */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          onPress={() => isSelectMode ? exitSelectMode() : router.back()}
-          style={styles.backBtn}
-        >
-          <Ionicons name={isSelectMode ? "close" : "arrow-back"} size={22} color={isSelectMode ? "#ef4444" : "#1e293b"} />
-        </TouchableOpacity>
-
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color="#94a3b8" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search leads…"
-            placeholderTextColor="#94a3b8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery !== "" && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={18} color="#94a3b8" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {canAssign && (
-          <TouchableOpacity
-            style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
-            onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}
-          >
-            <Ionicons
-              name={isSelectMode ? "checkmark-done" : "checkmark-circle-outline"}
-              size={20}
-              color="#6366f1"
-            />
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={styles.filterBtn}
-          onPress={() => setShowFilterModal(true)}
-        >
-          <Ionicons name="options-outline" size={22} color="#6366f1" />
-          {hasActiveFilters() && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>
-                {getActiveFilterCount()}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        <Text style={styles.statsText}>
-          {leads.length > 0
-            ? `${leads.length} of ${totalResults || leads.length} leads`
-            : "No leads found"}
-        </Text>
-        {hasActiveFilters() && (
-          <TouchableOpacity style={styles.clearChip} onPress={clearFilters}>
-            <Ionicons name="close-circle" size={13} color="#6366f1" />
-            <Text style={styles.clearChipText}>Clear filters</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </>
-  );
 
   /* ── Filter modal ── */
   const filterModal = (
@@ -520,24 +429,6 @@ export default function LeadsListScreen() {
               </ScrollView>
             </FilterSection>
 
-            <FilterSection label="Unit Type">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipRow}>
-                  {UNIT_TYPE_OPTIONS.map((o) => (
-                    <TouchableOpacity
-                      key={o.id}
-                      style={[styles.chip, tempFilters.unit_type === o.id && styles.chipActive]}
-                      onPress={() => setTempFilters({ ...tempFilters, unit_type: o.id })}
-                    >
-                      <Text style={[styles.chipText, tempFilters.unit_type === o.id && styles.chipTextActive]}>
-                        {o.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            </FilterSection>
-
             <FilterSection label="Sort">
               <View style={styles.sortRow}>
                 {(["DESC", "ASC"] as const).map((order) => (
@@ -586,17 +477,81 @@ export default function LeadsListScreen() {
     </Modal>
   );
 
-  if (loading && leads.length === 0) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={styles.loadingText}>Loading leads…</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
+      <Animated.View style={[styles.successBanner, { opacity: fadeAnim }]}>
+        <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+        <Text style={styles.successText}>Filters applied</Text>
+      </Animated.View>
+
+      {/* Top bar — outside FlatList so TextInput never unmounts on re-render */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          onPress={() => isSelectMode ? exitSelectMode() : router.back()}
+          style={styles.backBtn}
+        >
+          <Ionicons name={isSelectMode ? "close" : "arrow-back"} size={22} color={isSelectMode ? "#ef4444" : "#1e293b"} />
+        </TouchableOpacity>
+
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={18} color="#94a3b8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search leads…"
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery !== "" && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {canAssign && (
+          <TouchableOpacity
+            style={[styles.selectBtn, isSelectMode && styles.selectBtnActive]}
+            onPress={() => { setIsSelectMode(!isSelectMode); setSelectedIds(new Set()); }}
+          >
+            <Ionicons
+              name={isSelectMode ? "checkmark-done" : "checkmark-circle-outline"}
+              size={20}
+              color="#6366f1"
+            />
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={styles.filterBtn}
+          onPress={() => setShowFilterModal(true)}
+        >
+          <Ionicons name="options-outline" size={22} color="#6366f1" />
+          {hasActiveFilters() && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>
+                {getActiveFilterCount()}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Stats row */}
+      <View style={styles.statsRow}>
+        <Text style={styles.statsText}>
+          {leads.length > 0
+            ? `${leads.length} of ${totalResults || leads.length} leads`
+            : "No leads found"}
+        </Text>
+        {hasActiveFilters() && (
+          <TouchableOpacity style={styles.clearChip} onPress={clearFilters}>
+            <Ionicons name="close-circle" size={13} color="#6366f1" />
+            <Text style={styles.clearChipText}>Clear filters</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {error && (
         <View style={styles.errorBox}>
           <Ionicons name="alert-circle" size={40} color="#ef4444" />
@@ -611,7 +566,6 @@ export default function LeadsListScreen() {
         data={leads}
         keyExtractor={(item) => item.id}
         renderItem={renderLeadCard}
-        ListHeaderComponent={<ListHeader />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
@@ -632,13 +586,17 @@ export default function LeadsListScreen() {
           ) : null
         }
         ListEmptyComponent={
-          !loading && !error ? (
+          loading ? (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator size="large" color="#6366f1" />
+            </View>
+          ) : !error ? (
             <View style={styles.emptyBox}>
               <Ionicons name="people-outline" size={60} color="#cbd5e1" />
               <Text style={styles.emptyTitle}>No Leads Found</Text>
               <Text style={styles.emptySubtitle}>
-                {hasActiveFilters()
-                  ? "Try adjusting your filters"
+                {hasActiveFilters() || searchQuery
+                  ? "Try adjusting your search or filters"
                   : "Pull down to refresh"}
               </Text>
             </View>

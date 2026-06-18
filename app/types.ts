@@ -111,6 +111,32 @@ export interface DbLeadsResponse {
   hasMore: boolean;
 }
 
+export interface Customer {
+  userid: string;
+  company: string;
+  phonenumber: string | null;
+  website: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+  active: string;
+  datecreated: string;
+  vat: string | null;
+  email: string | null;
+  firstname: string | null;
+  lastname: string | null;
+}
+
+export interface CustomersResponse {
+  data: Customer[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface Deal {
   id: string;
   datecreated: string;

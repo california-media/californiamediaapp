@@ -1,5 +1,5 @@
 // app/utils/api.ts
-import { DbLeadsResponse, DealsResponse, LeadsResponse } from "../types";
+import { CustomersResponse, DbLeadsResponse, DealsResponse, LeadsResponse } from "../types";
 
 export interface LeadSource { id: number; name: string; }
 export interface LeadStatus { id: number; name: string; color: string; statusorder: number; }
@@ -349,6 +349,128 @@ export const fetchDeals = async (params?: {
   }
 };
 
+export const fetchCustomers = async (params?: {
+  search?: string;
+  country?: string;
+  active?: string;
+  sort_by?: string;
+  sort_order?: string;
+  page?: number;
+  limit?: number;
+}): Promise<CustomersResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    if (!params?.page) queryParams.append("page", "1");
+    if (!params?.limit) queryParams.append("limit", "20");
+    if (!params?.sort_by) queryParams.append("sort_by", "company");
+    if (!params?.sort_order) queryParams.append("sort_order", "ASC");
+
+    const url = `${getCrmApiUrl()}/customers/listing?${queryParams.toString()}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: buildAuthHeaders(),
+    });
+
+    if (response.status === 404) return { data: [], total: 0, page: 1, limit: 20, hasMore: false };
+    if (!response.ok) throw new Error(`Status: ${response.status}`);
+
+    const data = await response.json();
+    return {
+      data: data.data || [],
+      total: data.total || 0,
+      page: data.page || 1,
+      limit: data.limit || 20,
+      hasMore: data.hasMore || false,
+    };
+  } catch (error) {
+    console.error("Error fetching customers:", error);
+    return { data: [], total: 0, page: 1, limit: 20, hasMore: false };
+  }
+};
+
+export const fetchCustomerById = async (id: string | number): Promise<any | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/customers/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+};
+
+export const fetchCustomerDetail = async (id: string | number): Promise<any | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/customers/detail/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.status === false ? null : data;
+  } catch { return null; }
+};
+
+export const createCustomer = async (data: Record<string, any>): Promise<{ status: boolean; message: string }> => {
+  try {
+    const form = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (Array.isArray(value)) {
+          value.forEach((v) => form.append(`${key}[]`, String(v)));
+        } else {
+          form.append(key, String(value));
+        }
+      }
+    });
+    const res = await fetch(`${getCrmApiUrl()}/customers`, {
+      method: "POST",
+      headers: {
+        Authorization: getAuthToken(),
+        Cookie: getCrmCookie(),
+        "X-User-Id": getUserId(),
+        Accept: "application/json",
+      },
+      body: form,
+    });
+    const result = await res.json();
+    return { status: result.status === true, message: result.message || "" };
+  } catch (error) {
+    return { status: false, message: String(error) };
+  }
+};
+
+export const updateCustomer = async (id: string | number, data: Record<string, any>): Promise<{ status: boolean; message: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/customers/${id}`, {
+      method: "PUT",
+      headers: {
+        ...buildAuthHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    return { status: result.status === true, message: result.message || "" };
+  } catch (error) {
+    return { status: false, message: String(error) };
+  }
+};
+
+export const deleteCustomer = async (id: string | number): Promise<{ status: boolean; message: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/delete/customers/${id}`, {
+      method: "DELETE",
+      headers: buildAuthHeaders(),
+    });
+    const result = await res.json();
+    return { status: result.status === true, message: result.message || "" };
+  } catch (error) {
+    return { status: false, message: String(error) };
+  }
+};
+
 // Helper function to fetch single lead
 export const fetchLeadById = async (leadId: string) => {
   try {
@@ -379,4 +501,213 @@ export const fetchLeadById = async (leadId: string) => {
     console.error("Error fetching lead:", error);
     return null;
   }
+};
+
+// ─── Renewals ──────────────────────────────────────────────────────────────
+
+export interface RenewalProduct { id: number; name: string; description: string; default_price: string; category: string; }
+
+export const fetchRenewalProducts = async (): Promise<RenewalProduct[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewal_products`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const fetchRenewals = async (params?: {
+  search?: string;
+  status?: string;
+  customer_id?: string;
+  product_id?: string;
+  renewal_type?: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: any[]; total: number; page: number; limit: number; hasMore: boolean }> => {
+  try {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') q.append(k, String(v)); });
+    if (!params?.page) q.append('page', '1');
+    if (!params?.limit) q.append('limit', '20');
+    const res = await fetch(`${getCrmApiUrl()}/renewals/listing?${q.toString()}`, { headers: buildAuthHeaders() });
+    if (res.status === 404) return { data: [], total: 0, page: 1, limit: 20, hasMore: false };
+    if (!res.ok) throw new Error(`Status: ${res.status}`);
+    const data = await res.json();
+    return { data: data.data || [], total: data.total || 0, page: data.page || 1, limit: data.limit || 20, hasMore: !!data.hasMore };
+  } catch { return { data: [], total: 0, page: 1, limit: 20, hasMore: false }; }
+};
+
+export const fetchRenewalById = async (id: string | number): Promise<any | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewals/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.status === false ? null : data;
+  } catch { return null; }
+};
+
+export const fetchRenewalStats = async (): Promise<any> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewals/stats`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+};
+
+const buildFormHeaders = () => ({
+  Authorization: getAuthToken(),
+  Cookie: getCrmCookie(),
+  'X-User-Id': getUserId(),
+  Accept: 'application/json',
+  'Content-Type': 'application/x-www-form-urlencoded',
+});
+
+export const createRenewal = async (body: Record<string, string>): Promise<{ status: boolean; message: string; id?: number }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewals/data`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: new URLSearchParams(body).toString(),
+    });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message || '', id: data.id };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const updateRenewal = async (id: string | number, body: Record<string, string>): Promise<{ status: boolean; message: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewals/${id}`, {
+      method: 'PUT',
+      headers: buildFormHeaders(),
+      body: new URLSearchParams(body).toString(),
+    });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message || '' };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const deleteRenewal = async (id: string | number): Promise<{ status: boolean; message: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewals/${id}`, { method: 'DELETE', headers: buildAuthHeaders() });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message || '' };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const renewRenewal = async (id: string | number): Promise<{ status: boolean; message: string; new_expiry?: string; data?: any }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewals/renew/${id}`, { method: 'POST', headers: buildAuthHeaders() });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message || '', new_expiry: data.new_expiry, data: data.data };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const cancelRenewal = async (id: string | number): Promise<{ status: boolean; message: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewals/cancel/${id}`, { method: 'POST', headers: buildAuthHeaders() });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message || '' };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const fetchRenewalNotes = async (renewalId: string | number): Promise<any[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewal_notes/${renewalId}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const addRenewalNote = async (renewalId: string | number, note: string): Promise<{ status: boolean; message: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewal_notes/data`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: new URLSearchParams({ renewal_id: String(renewalId), note }).toString(),
+    });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message || '' };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const deleteRenewalNote = async (noteId: string | number): Promise<{ status: boolean; message: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewal_notes/${noteId}`, { method: 'DELETE', headers: buildAuthHeaders() });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message || '' };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const fetchRenewalHistory = async (renewalId: string | number): Promise<any[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/renewal_history/${renewalId}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+// ─── Calendar ────────────────────────────────────────────────────────────────
+
+export const fetchCalendarEvents = async (start: string, end: string): Promise<any[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/calendar/events?start=${start}&end=${end}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.data) ? data.data : [];
+  } catch { return []; }
+};
+
+export const createCalendarEvent = async (payload: {
+  title: string;
+  start: string;
+  end?: string;
+  description?: string;
+  color?: string;
+  public?: number;
+}): Promise<{ status: boolean; id?: number; message?: string }> => {
+  try {
+    const body = new URLSearchParams();
+    Object.entries(payload).forEach(([k, v]) => { if (v !== undefined) body.append(k, String(v)); });
+    const res = await fetch(`${getCrmApiUrl()}/calendar/data`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: body.toString(),
+    });
+    const data = await res.json();
+    return { status: !!data.status, id: data.id, message: data.message };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const updateCalendarEvent = async (id: number, payload: {
+  title?: string;
+  start?: string;
+  end?: string;
+  description?: string;
+  color?: string;
+  public?: number;
+}): Promise<{ status: boolean; message?: string }> => {
+  try {
+    const body = new URLSearchParams();
+    Object.entries(payload).forEach(([k, v]) => { if (v !== undefined) body.append(k, String(v)); });
+    const res = await fetch(`${getCrmApiUrl()}/calendar/${id}`, {
+      method: 'PUT',
+      headers: buildFormHeaders(),
+      body: body.toString(),
+    });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const deleteCalendarEvent = async (id: number): Promise<{ status: boolean; message?: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/calendar/${id}`, { method: 'DELETE', headers: buildAuthHeaders() });
+    const data = await res.json();
+    return { status: !!data.status, message: data.message };
+  } catch (e) { return { status: false, message: String(e) }; }
 };

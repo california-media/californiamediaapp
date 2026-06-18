@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Dimensions,
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -16,11 +15,8 @@ import {
 
 const SCREEN_W = Dimensions.get("window").width;
 import { Lead } from "./types";
-import { LeadStatus, fetchAllLeads, fetchDbLeads, fetchDeals, fetchLeadStatuses } from "./utils/api";
-import { fetchProjects } from "./utils/projectsApi";
-import { fetchProperties } from "./utils/propertiesApi";
-import { defaultFilters } from "./types";
-import { getStaffInfo } from "./utils/config";
+import { LeadStatus, fetchAllLeads, fetchCalendarEvents, fetchCustomers, fetchDbLeads, fetchLeadStatuses, fetchRenewals } from "./utils/api";
+import { StaffInfo, getStaffInfo, initConfig } from "./utils/config";
 
 
 const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f59e0b","#10b981","#06b6d4","#3b82f6"];
@@ -30,67 +26,60 @@ export default function HomeScreen() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [latestLead, setLatestLead] = useState<Lead | null>(null);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
+  const [leadsTotal, setLeadsTotal] = useState<number>(0);
   const [dbLeadsTotal, setDbLeadsTotal] = useState<number>(0);
-  const [dealsTotal, setDealsTotal] = useState<number>(0);
-  const [properties, setProperties] = useState<any[]>([]);      // Reelly off-plan
-  const [crmProperties, setCrmProperties] = useState<any[]>([]); // CRM secondary
-  const [propsLoading, setPropsLoading] = useState(true);
-  const [crmPropsLoading, setCrmPropsLoading] = useState(true);
+  const [customersTotal, setCustomersTotal] = useState<number>(0);
   const [apiStatuses, setApiStatuses] = useState<LeadStatus[]>([]);
+  const [allCalEvents, setAllCalEvents] = useState<any[]>([]);
+  const [selectedCalDate, setSelectedCalDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [expiringRenewals, setExpiringRenewals] = useState<any[]>([]);
+  const [staffInfo, setStaffInfoState] = useState<StaffInfo | null>(() => getStaffInfo());
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const router = useRouter();
 
-  const loadProjects = async () => {
-    try {
-      const res = await fetchProjects(1, 6);
-      console.log("[Projects] loaded", res?.data?.length ?? 0, "items");
-      setProperties(res?.data ?? []);
-    } catch (e) {
-      console.log("[Projects] error:", e);
-    } finally {
-      setPropsLoading(false);
-    }
-  };
-
-  const loadCrmProperties = async () => {
-    try {
-      const res = await fetchProperties("Off-plan", defaultFilters, 1, 6);
-      setCrmProperties(res?.data ?? []);
-    } catch {
-      // silent
-    } finally {
-      setCrmPropsLoading(false);
-    }
-  };
+  const isAdmin = staffInfo?.admin === "1";
 
   const loadData = async () => {
-    const [leadsRes, dbRes, dealsRes, statusRes] = await Promise.allSettled([
-      fetchAllLeads({ limit: 100 }),
+    await initConfig();
+    const info = getStaffInfo();
+    setStaffInfoState(info);
+    const admin = info?.admin === "1";
+    const todayDate = new Date();
+    const calStart  = todayDate.toISOString().slice(0, 10);
+    const calEnd    = new Date(todayDate.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+
+    const [leadsRes, dbRes, customersRes, statusRes, eventsRes, renewalsRes] = await Promise.allSettled([
+      fetchAllLeads({ limit: 10, sort_by: "dateadded", sort_order: "DESC" }),
       fetchDbLeads({ limit: 1, page: 1 }),
-      fetchDeals({ limit: 1, page: 1 }),
+      admin ? fetchCustomers({ limit: 1, page: 1 }) : Promise.resolve({ data: [], total: 0, page: 1, limit: 1, hasMore: false }),
       fetchLeadStatuses(),
+      fetchCalendarEvents(calStart, calEnd),
+      fetchRenewals({ status: "expiring", limit: 5 }),
     ]);
     if (leadsRes.status === "fulfilled") {
       const all = leadsRes.value.data || [];
-      const sorted = [...all].sort((a, b) => new Date(b.dateadded).getTime() - new Date(a.dateadded).getTime());
       setLeads(all);
-      setLatestLead(sorted[0] || null);
-      setRecentLeads(sorted.slice(1, 7));
+      setLeadsTotal(Number(leadsRes.value.total) || all.length);
+      setLatestLead(all[0] || null);
+      setRecentLeads(all.slice(1, 7));
     }
     if (dbRes.status === "fulfilled") setDbLeadsTotal(Number(dbRes.value.total) || 0);
-    if (dealsRes.status === "fulfilled") setDealsTotal(Number(dealsRes.value.total) || 0);
+    if (customersRes.status === "fulfilled") setCustomersTotal(Number(customersRes.value.total) || 0);
     if (statusRes.status === "fulfilled") setApiStatuses(statusRes.value);
+    if (eventsRes.status === "fulfilled") {
+      const sorted = [...eventsRes.value].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+      setAllCalEvents(sorted);
+    }
+    if (renewalsRes.status === "fulfilled") setExpiringRenewals(renewalsRes.value.data || []);
     setInitialLoading(false);
   };
 
-  useEffect(() => { loadData(); loadProjects(); loadCrmProperties(); }, []);
+  useEffect(() => { loadData(); }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    setPropsLoading(true);
-    setCrmPropsLoading(true);
-    await Promise.all([loadData(), loadProjects(), loadCrmProperties()]);
+    await loadData();
     setRefreshing(false);
   };
 
@@ -106,15 +95,21 @@ export default function HomeScreen() {
     return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   };
 
-  const getPropStatusColor = (s: string) => {
-    const l = s?.toLowerCase();
-    if (l === "available" || l === "ready" || l === "completed") return "#10b981";
-    if (l === "sold" || l === "out of stock") return "#ef4444";
-    if (l === "reserved" || l === "under construction") return "#f59e0b";
-    return "#6366f1";
-  };
-
   const todayStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  const calToday = new Date();
+  const calTodayStr = calToday.toISOString().slice(0, 10);
+  const calDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(calToday.getTime() + i * 86400000);
+    return {
+      label: d.toLocaleDateString("en-US", { weekday: "short" }).charAt(0),
+      num: d.getDate(),
+      dateStr: d.toISOString().slice(0, 10),
+      isToday: i === 0,
+    };
+  });
+  const calEventDates = new Set(allCalEvents.map(e => (e.start ?? "").slice(0, 10)));
+  const filteredEvents = allCalEvents.filter(e => (e.start ?? "").slice(0, 10) === selectedCalDate);
 
   if (initialLoading) {
     return (
@@ -128,16 +123,16 @@ export default function HomeScreen() {
   }
 
   const STATS = [
-    { label: "Leads", value: leads.length, icon: "people" as const, color: "#6366f1", bg: "#eef2ff", route: "/leads-list" },
+    { label: "Leads", value: leadsTotal, icon: "people" as const, color: "#6366f1", bg: "#eef2ff", route: "/leads-list" },
     { label: "DB Leads", value: dbLeadsTotal, icon: "server" as const, color: "#8b5cf6", bg: "#f5f3ff", route: "/db-leads-list" },
-    { label: "Deals", value: dealsTotal, icon: "briefcase" as const, color: "#10b981", bg: "#f0fdf4", route: "/deals-list" },
+    ...(isAdmin ? [{ label: "Customers", value: customersTotal, icon: "people-circle" as const, color: "#0ea5e9", bg: "#f0f9ff", route: "/customers-list" }] : []),
   ];
 
   const QUICK = [
     { label: "New To Do", icon: "checkmark-done" as const, color: "#f59e0b", bg: "#fffbeb", route: "/todos-list" },
-    { label: "Calendar", icon: "calendar" as const, color: "#6366f1", bg: "#eef2ff", route: "/reminders-list" },
-    { label: "Properties", icon: "business" as const, color: "#06b6d4", bg: "#ecfeff", route: "/properties-list" },
-    { label: "Off-Plan", icon: "business" as const, color: "#8b5cf6", bg: "#f5f3ff", route: "/off-plan-list" },
+    { label: "Calendar", icon: "calendar" as const, color: "#6366f1", bg: "#eef2ff", route: "/calendar" },
+    { label: "Renewals", icon: "reload-circle" as const, color: "#10b981", bg: "#f0fdf4", route: "/renewals-list" },
+    { label: "Timesheet", icon: "time" as const, color: "#0ea5e9", bg: "#f0f9ff", route: "/timesheet" },
   ];
 
   return (
@@ -157,7 +152,7 @@ export default function HomeScreen() {
         <View style={styles.heroBar}>
           <View style={styles.heroBarLeft}>
             <Text style={styles.heroDate}>{todayStr}</Text>
-            <Text style={styles.heroGreet}>Hello, {getStaffInfo()?.firstname ?? "there"} 👋</Text>
+            <Text style={styles.heroGreet}>Hello, {staffInfo?.firstname ?? "there"} 👋</Text>
           </View>
           <TouchableOpacity style={styles.profileBtn} onPress={() => router.push("/profile")}>
             <Ionicons name="person" size={20} color="#6366f1" />
@@ -193,6 +188,71 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))}
         </View>
+      </View>
+
+      {/* ─────── CALENDAR WIDGET ─────── */}
+      <View style={styles.section}>
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Calendar</Text>
+          <TouchableOpacity onPress={() => router.push("/calendar" as any)}>
+            <Text style={styles.seeAll}>See All</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Week strip */}
+        <View style={styles.calWeekStrip}>
+          {calDays.map((d) => {
+            const isSelected = d.dateStr === selectedCalDate;
+            return (
+              <TouchableOpacity
+                key={d.dateStr}
+                style={[styles.calDayCell, isSelected && styles.calDayCellToday]}
+                onPress={() => setSelectedCalDate(d.dateStr)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.calDayLabel, isSelected && styles.calDayLabelToday]}>{d.label}</Text>
+                <Text style={[styles.calDayNum, isSelected && styles.calDayNumToday]}>{d.num}</Text>
+                {calEventDates.has(d.dateStr) && (
+                  <View style={[styles.calEventDot, isSelected && styles.calEventDotToday]} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Events for selected date */}
+        {filteredEvents.length > 0 ? (
+          <View style={styles.calEventsList}>
+            {filteredEvents.map((ev, i) => {
+              const evDate = new Date(ev.start);
+              const isEvToday = evDate.toISOString().slice(0, 10) === calTodayStr;
+              const dayLabel = isEvToday ? "Today" : evDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+              const timeLabel = (ev.start ?? "").length > 10 ? evDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+              return (
+                <TouchableOpacity
+                  key={ev.id ?? i}
+                  style={styles.calEventRow}
+                  onPress={() => router.push({ pathname: "/calendar", params: { date: (ev.start ?? "").slice(0, 10) || selectedCalDate } } as any)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.calEventAccent, { backgroundColor: ev.color || "#6366f1" }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.calEventTitle} numberOfLines={1}>{ev.title}</Text>
+                    <Text style={styles.calEventMeta}>{dayLabel}{timeLabel ? `  ·  ${timeLabel}` : ""}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color="#c7d2fe" />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.calEmpty}>
+            <Ionicons name="calendar-outline" size={28} color="#cbd5e1" />
+            <Text style={styles.calEmptyText}>
+              {selectedCalDate === calTodayStr ? "No events today" : "No events on this day"}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* ─────── LATEST LEAD ─────── */}
@@ -263,125 +323,47 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* ─────── OFF-PLAN PROJECTS (Reelly) ─────── */}
-      <View style={styles.section}>
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Off-Plan Projects</Text>
-          <TouchableOpacity onPress={() => router.push("/off-plan-list" as any)}>
-            <Text style={styles.seeAll}>See All</Text>
-          </TouchableOpacity>
+      {/* ─────── EXPIRING RENEWALS ─────── */}
+      {expiringRenewals.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>Expiring Renewals</Text>
+            <TouchableOpacity onPress={() => router.push("/renewals-list" as any)}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          {expiringRenewals.map((r) => {
+            const expiry = new Date(r.expiry_date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const days = Math.ceil((expiry.getTime() - today.getTime()) / 86400000);
+            const urgent = days <= 7;
+            const dayLabel = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Today" : `${days}d left`;
+            return (
+              <TouchableOpacity
+                key={r.id}
+                style={styles.renewalCard}
+                onPress={() => router.push({ pathname: "/renewal-detail", params: { renewal: JSON.stringify(r) } } as any)}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.renewalAccent, { backgroundColor: urgent ? "#f59e0b" : "#6366f1" }]} />
+                <View style={styles.renewalInner}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.renewalName} numberOfLines={1}>{r.name || r.domain}</Text>
+                    <Text style={styles.renewalCustomer} numberOfLines={1}>{r.customer_name || r.client_name || ""}</Text>
+                  </View>
+                  <View style={styles.renewalRight}>
+                    <Text style={[styles.renewalDays, { color: urgent ? "#f59e0b" : "#6366f1" }]}>{dayLabel}</Text>
+                    {r.renewal_price ? (
+                      <Text style={styles.renewalPrice}>AED {Number(r.renewal_price).toLocaleString()}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-        {propsLoading ? (
-          <View style={styles.propsPlaceholder}>
-            <Ionicons name="business-outline" size={32} color="#c7d2fe" />
-            <Text style={styles.propsPlaceholderText}>Loading projects…</Text>
-          </View>
-        ) : properties.length === 0 ? (
-          <View style={styles.propsPlaceholder}>
-            <Ionicons name="business-outline" size={32} color="#c7d2fe" />
-            <Text style={styles.propsPlaceholderText}>No projects found</Text>
-          </View>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
-            {properties.map((p) => {
-              const imgUrl = p.s3_cover_url || p.cover_image_url?.url || "";
-              const status = p.sale_status || "Off-Plan";
-              const price = p.max_price_aed ? `AED ${Number(p.max_price_aed).toLocaleString()}` : "Price on Request";
-              return (
-                <TouchableOpacity
-                  key={p._id || p.id}
-                  style={styles.propCard}
-                  onPress={() => router.push({ pathname: "/project-detail", params: { projectId: p.id } })}
-                  activeOpacity={0.88}
-                >
-                  <Image source={{ uri: imgUrl }} style={styles.propImage} />
-                  <View style={styles.propOverlay} />
-                  <View style={[styles.propBadge, { backgroundColor: getPropStatusColor(status) }]}>
-                    <Text style={styles.propBadgeText}>{status}</Text>
-                  </View>
-                  <View style={styles.propInfo}>
-                    <Text style={styles.propName} numberOfLines={1}>{p.name}</Text>
-                    <View style={styles.propLocRow}>
-                      <Ionicons name="location-outline" size={11} color="#94a3b8" />
-                      <Text style={styles.propLoc} numberOfLines={1}>{p.area || "Dubai"}</Text>
-                    </View>
-                    <View style={styles.propFooter}>
-                      <Text style={styles.propPrice} numberOfLines={1}>{price}</Text>
-                      {p.developer ? (
-                        <View style={styles.bedBadge}>
-                          <Ionicons name="business-outline" size={10} color="#6366f1" />
-                          <Text style={styles.bedText} numberOfLines={1}>{p.developer}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
-      </View>
-
-      {/* ─────── CRM PROPERTIES ─────── */}
-      <View style={styles.section}>
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Properties</Text>
-          <TouchableOpacity onPress={() => router.push({ pathname: "/properties-list", params: { tab: "Secondary" } } as any)}>
-            <Text style={styles.seeAll}>See All</Text>
-          </TouchableOpacity>
-        </View>
-        {crmPropsLoading ? (
-          <View style={styles.propsPlaceholder}>
-            <Ionicons name="home-outline" size={32} color="#c7d2fe" />
-            <Text style={styles.propsPlaceholderText}>Loading properties…</Text>
-          </View>
-        ) : crmProperties.length === 0 ? (
-          <View style={styles.propsPlaceholder}>
-            <Ionicons name="home-outline" size={32} color="#c7d2fe" />
-            <Text style={styles.propsPlaceholderText}>No properties found</Text>
-          </View>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
-            {crmProperties.map((p) => {
-              const imgUrl = p.thumbnail || "";
-              const status = p.property_status || "Available";
-              const price = p.price && parseFloat(p.price) > 0
-                ? `AED ${Number(p.price).toLocaleString()}`
-                : "Price on Request";
-              return (
-                <TouchableOpacity
-                  key={String(p.id)}
-                  style={styles.propCard}
-                  onPress={() => router.push({ pathname: "/property-detail", params: { propertyId: p.id } })}
-                  activeOpacity={0.88}
-                >
-                  <Image source={{ uri: imgUrl }} style={styles.propImage} />
-                  <View style={styles.propOverlay} />
-                  <View style={[styles.propBadge, { backgroundColor: getPropStatusColor(status) }]}>
-                    <Text style={styles.propBadgeText}>{status}</Text>
-                  </View>
-                  <View style={styles.propInfo}>
-                    <Text style={styles.propName} numberOfLines={1}>{p.project_name}</Text>
-                    <View style={styles.propLocRow}>
-                      <Ionicons name="location-outline" size={11} color="#94a3b8" />
-                      <Text style={styles.propLoc} numberOfLines={1}>{p.location || p.bayut_location_name || "Dubai"}</Text>
-                    </View>
-                    <View style={styles.propFooter}>
-                      <Text style={styles.propPrice} numberOfLines={1}>{price}</Text>
-                      {p.property_type ? (
-                        <View style={styles.bedBadge}>
-                          <Ionicons name="home-outline" size={10} color="#6366f1" />
-                          <Text style={styles.bedText} numberOfLines={1}>{p.property_type}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
-      </View>
+      )}
 
       {/* ─────── RECENT LEADS ─────── */}
       <View style={[styles.section, { marginBottom: 100 }]}>
@@ -479,9 +461,9 @@ export default function HomeScreen() {
           <Ionicons name="people-outline" size={22} color="#94a3b8" />
           <Text style={styles.navText}>Leads</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/properties-list" as any)}>
-          <Ionicons name="business-outline" size={22} color="#94a3b8" />
-          <Text style={styles.navText}>Properties</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/renewals-list" as any)}>
+          <Ionicons name="reload-circle-outline" size={22} color="#94a3b8" />
+          <Text style={styles.navText}>Renewals</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push("/profile" as any)}>
           <Ionicons name="person-outline" size={22} color="#94a3b8" />
@@ -568,10 +550,10 @@ const styles = StyleSheet.create({
   seeAll: { fontSize: 13, color: "#6366f1", fontWeight: "600" },
 
   // ── Quick access (full-width grid) ──
-  // 4 cards, 16px padding each side, 3 gaps of 8px = (SCREEN_W - 32 - 24) / 4
-  quickGrid: { flexDirection: "row", gap: 8 },
+  // 2 cols, 16px padding each side, 1 gap of 8px = (SCREEN_W - 32 - 8) / 2
+  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   quickCard: {
-    width: (SCREEN_W - 32 - 24) / 4,
+    width: (SCREEN_W - 32 - 8) / 2,
     alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -589,39 +571,50 @@ const styles = StyleSheet.create({
   },
   quickLabel: { fontSize: 11, fontWeight: "700" },
 
-  // ── Properties ──
-  propCard: {
-    width: SCREEN_W * 0.52,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+  // ── Calendar widget ──
+  calWeekStrip: {
+    flexDirection: "row", justifyContent: "space-between",
+    backgroundColor: "#fff", borderRadius: 16, padding: 10,
+    marginBottom: 10,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
   },
-  propImage: { width: "100%", height: 126, resizeMode: "cover" },
-  propOverlay: {
-    position: "absolute", top: 0, left: 0, right: 0, height: 126,
-    backgroundColor: "rgba(0,0,0,0.08)",
+  calDayCell: {
+    alignItems: "center", paddingVertical: 8, paddingHorizontal: 6,
+    borderRadius: 12, gap: 4, minWidth: 36,
   },
-  propBadge: {
-    position: "absolute", top: 10, left: 10,
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
+  calDayCellToday: { backgroundColor: "#6366f1" },
+  calDayLabel: { fontSize: 10, fontWeight: "600", color: "#94a3b8", textTransform: "uppercase" },
+  calDayLabelToday: { color: "rgba(255,255,255,0.75)" },
+  calDayNum: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
+  calDayNumToday: { color: "#fff" },
+  calEventDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#6366f1" },
+  calEventDotToday: { backgroundColor: "#fff" },
+  calEventsList: {
+    backgroundColor: "#fff", borderRadius: 16, overflow: "hidden",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
   },
-  propBadgeText: { fontSize: 10, color: "#fff", fontWeight: "700" },
-  propInfo: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
-  propName: { fontSize: 13, fontWeight: "700", color: "#0f172a", marginBottom: 4 },
-  propLocRow: { flexDirection: "row", alignItems: "center", gap: 3, marginBottom: 8 },
-  propLoc: { fontSize: 11, color: "#94a3b8", flex: 1 },
-  propFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4 },
-  propPrice: { fontSize: 11, fontWeight: "700", color: "#0f172a", flex: 1, flexShrink: 1 },
-  bedBadge: {
-    flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 0,
-    backgroundColor: "#eef2ff", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7,
+  calEventRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingVertical: 12, paddingHorizontal: 14,
+    borderBottomWidth: 1, borderBottomColor: "#f1f5f9",
   },
-  bedText: { fontSize: 10, color: "#6366f1", fontWeight: "600" },
+  calEventAccent: { width: 4, height: 36, borderRadius: 2 },
+  calEventTitle: { fontSize: 13, fontWeight: "700", color: "#0f172a", marginBottom: 2 },
+  calEventMeta: { fontSize: 11, color: "#94a3b8", fontWeight: "500" },
+  calEmpty: { alignItems: "center", paddingVertical: 24, gap: 8, backgroundColor: "#fff", borderRadius: 16 },
+  calEmptyText: { fontSize: 13, color: "#94a3b8" },
+
+  renewalCard: {
+    backgroundColor: "#fff", borderRadius: 14, marginBottom: 8, flexDirection: "row", overflow: "hidden",
+    shadowColor: "#64748b", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2,
+  },
+  renewalAccent: { width: 4 },
+  renewalInner: { flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 12, gap: 10 },
+  renewalName: { fontSize: 14, fontWeight: "700", color: "#0f172a" },
+  renewalCustomer: { fontSize: 12, color: "#64748b", marginTop: 2 },
+  renewalRight: { alignItems: "flex-end", gap: 3 },
+  renewalDays: { fontSize: 12, fontWeight: "700" },
+  renewalPrice: { fontSize: 12, color: "#6366f1", fontWeight: "600" },
 
   // ── Lead cards ──
   leadCard: {
@@ -674,10 +667,6 @@ const styles = StyleSheet.create({
   // ── Empty ──
   emptyBox: { paddingVertical: 36, alignItems: "center" },
   emptyText: { fontSize: 14, color: "#94a3b8", marginTop: 10 },
-
-  // ── Properties placeholder ──
-  propsPlaceholder: { paddingVertical: 28, alignItems: "center", backgroundColor: "#fff", borderRadius: 16 },
-  propsPlaceholderText: { fontSize: 13, color: "#94a3b8", marginTop: 8 },
 
   // ── Bottom nav ──
   bottomNav: {

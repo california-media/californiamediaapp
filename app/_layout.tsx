@@ -2,6 +2,9 @@ import { Stack, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { initConfig } from "./utils/config";
 
+// Kick off config loading immediately at module eval — before any screen mounts
+initConfig();
+
 export default function RootLayout() {
   const router = useRouter();
 
@@ -31,11 +34,15 @@ export default function RootLayout() {
       <Stack.Screen name="db-leads-list" options={{ headerShown: false, title: "DB Leads" }} />
       <Stack.Screen name="db-lead-detail" options={{ headerShown: false, title: "DB Lead Details" }} />
       <Stack.Screen name="add-db-lead" options={{ headerShown: false, title: "Add DB Lead" }} />
-      <Stack.Screen name="deals-list" options={{ headerShown: false, title: "Deals" }} />
-      <Stack.Screen name="deal-detail" options={{ headerShown: false, title: "Deal Details" }} />
-      <Stack.Screen name="add-deal" options={{ headerShown: false, title: "Add Deal" }} />
+      <Stack.Screen name="customers-list" options={{ headerShown: false, title: "Customers" }} />
+      <Stack.Screen name="customer-detail" options={{ headerShown: false, title: "Customer Detail" }} />
       <Stack.Screen name="todos-list" options={{ headerShown: false, title: "Todos" }} />
       <Stack.Screen name="reminders-list" options={{ headerShown: false, title: "Reminders" }} />
+      <Stack.Screen name="calendar" options={{ headerShown: false, title: "Calendar" }} />
+      <Stack.Screen name="renewals-list" options={{ headerShown: false, title: "Renewals" }} />
+      <Stack.Screen name="renewal-detail" options={{ headerShown: false, title: "Renewal Detail" }} />
+      <Stack.Screen name="add-renewal" options={{ headerShown: false, title: "Add Renewal" }} />
+      <Stack.Screen name="timesheet" options={{ headerShown: false, title: "Timesheet" }} />
     </Stack>
   );
 }
