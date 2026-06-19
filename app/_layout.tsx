@@ -1,12 +1,15 @@
+import * as Notifications from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { initConfig } from "./utils/config";
+import { NotificationProvider, useNotification } from "./utils/NotificationContext";
+import { disconnectPusher, initPusher } from "./utils/pusherService";
+import { registerForPushNotificationsAsync } from "./utils/notifications";
 
-// Kick off config loading immediately at module eval — before any screen mounts
-initConfig();
-
-export default function RootLayout() {
+function AppContent() {
   const router = useRouter();
+  const { showNotification } = useNotification();
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     initConfig().then(({ crmUrl, userId }) => {
@@ -14,8 +17,41 @@ export default function RootLayout() {
         router.replace("/connect");
       } else if (!userId) {
         router.replace("/login");
+      } else {
+        // Logged in — register for push notifications
+        registerForPushNotificationsAsync();
       }
     });
+
+    // In-app WebSocket notifications (app open)
+    const pusher = initPusher();
+    pusher.bind("leads", "new-lead", (data: unknown) => {
+      const d = data as { name?: string; email?: string };
+      const label = d.name || d.email || "Unknown";
+      showNotification(`New lead: ${label}`, "info");
+    });
+
+    // Handle notification tap (app background/closed → foreground)
+    const tapListener = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const notifData = response.notification.request.content.data as {
+          type?: string;
+          lead_id?: number;
+        };
+        if (notifData?.type === "new_lead") {
+          router.push("/leads-list");
+        }
+      }
+    );
+
+    cleanupRef.current = () => {
+      tapListener.remove();
+      disconnectPusher();
+    };
+
+    return () => {
+      cleanupRef.current?.();
+    };
   }, []);
 
   return (
@@ -44,5 +80,13 @@ export default function RootLayout() {
       <Stack.Screen name="add-renewal" options={{ headerShown: false, title: "Add Renewal" }} />
       <Stack.Screen name="timesheet" options={{ headerShown: false, title: "Timesheet" }} />
     </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <NotificationProvider>
+      <AppContent />
+    </NotificationProvider>
   );
 }
