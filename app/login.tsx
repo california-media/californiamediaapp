@@ -23,6 +23,7 @@ import {
   setStaffInfo,
   clearConfig,
 } from "./utils/config";
+import { registerForPushNotificationsAsync } from "./utils/notifications";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -94,6 +95,7 @@ export default function LoginScreen() {
       if (data.staff) {
         await setStaffInfo(data.staff);
       }
+      registerForPushNotificationsAsync();
       router.replace("/");
     } catch (err: any) {
       setError(err?.message || "Login failed. Please check your credentials.");

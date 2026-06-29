@@ -131,8 +131,8 @@ export default function HomeScreen() {
   const QUICK = [
     { label: "New To Do", icon: "checkmark-done" as const, color: "#f59e0b", bg: "#fffbeb", route: "/todos-list" },
     { label: "Calendar", icon: "calendar" as const, color: "#6366f1", bg: "#eef2ff", route: "/calendar" },
-    { label: "Renewals", icon: "reload-circle" as const, color: "#10b981", bg: "#f0fdf4", route: "/renewals-list" },
-    { label: "Timesheet", icon: "time" as const, color: "#0ea5e9", bg: "#f0f9ff", route: "/timesheet" },
+    ...(isAdmin ? [{ label: "Renewals", icon: "reload-circle" as const, color: "#10b981", bg: "#f0fdf4", route: "/renewals-list" }] : []),
+    ...(isAdmin ? [{ label: "Timesheet", icon: "time" as const, color: "#0ea5e9", bg: "#f0f9ff", route: "/timesheet" }] : []),
   ];
 
   return (
@@ -179,14 +179,18 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Access</Text>
         <View style={styles.quickGrid}>
-          {QUICK.map((q) => (
-            <TouchableOpacity key={q.label} style={styles.quickCard} onPress={() => router.push(q.route as any)} activeOpacity={0.75}>
-              <View style={[styles.quickIcon, { backgroundColor: q.bg }]}>
-                <Ionicons name={q.icon} size={22} color={q.color} />
-              </View>
-              <Text style={[styles.quickLabel, { color: q.color }]}>{q.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {QUICK.map((q) => {
+            const cols = QUICK.length === 3 ? 3 : 2;
+            const cardW = (SCREEN_W - 32 - 8 * (cols - 1)) / cols;
+            return (
+              <TouchableOpacity key={q.label} style={[styles.quickCard, { width: cardW }]} onPress={() => router.push(q.route as any)} activeOpacity={0.75}>
+                <View style={[styles.quickIcon, { backgroundColor: q.bg }]}>
+                  <Ionicons name={q.icon} size={22} color={q.color} />
+                </View>
+                <Text style={[styles.quickLabel, { color: q.color }]}>{q.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -324,7 +328,7 @@ export default function HomeScreen() {
       )}
 
       {/* ─────── EXPIRING RENEWALS ─────── */}
-      {expiringRenewals.length > 0 && (
+      {isAdmin && expiringRenewals.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>Expiring Renewals</Text>
@@ -461,10 +465,12 @@ export default function HomeScreen() {
           <Ionicons name="people-outline" size={22} color="#94a3b8" />
           <Text style={styles.navText}>Leads</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push("/renewals-list" as any)}>
-          <Ionicons name="reload-circle-outline" size={22} color="#94a3b8" />
-          <Text style={styles.navText}>Renewals</Text>
-        </TouchableOpacity>
+        {isAdmin && (
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push("/renewals-list" as any)}>
+            <Ionicons name="reload-circle-outline" size={22} color="#94a3b8" />
+            <Text style={styles.navText}>Renewals</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.navItem} onPress={() => router.push("/profile" as any)}>
           <Ionicons name="person-outline" size={22} color="#94a3b8" />
           <Text style={styles.navText}>Profile</Text>

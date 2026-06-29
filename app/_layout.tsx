@@ -1,7 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
-import { initConfig } from "./utils/config";
+import { initConfig, getStaffInfo } from "./utils/config";
 import { NotificationProvider, useNotification } from "./utils/NotificationContext";
 import { disconnectPusher, initPusher } from "./utils/pusherService";
 import { registerForPushNotificationsAsync } from "./utils/notifications";
@@ -13,12 +13,12 @@ function AppContent() {
 
   useEffect(() => {
     initConfig().then(({ crmUrl, userId }) => {
+      console.log('[Push] initConfig done, userId:', userId, 'crmUrl:', crmUrl);
       if (!crmUrl) {
         router.replace("/connect");
       } else if (!userId) {
         router.replace("/login");
       } else {
-        // Logged in — register for push notifications
         registerForPushNotificationsAsync();
       }
     });
@@ -26,7 +26,16 @@ function AppContent() {
     // In-app WebSocket notifications (app open)
     const pusher = initPusher();
     pusher.bind("leads", "new-lead", (data: unknown) => {
-      const d = data as { name?: string; email?: string };
+      const d = data as { name?: string; email?: string; assigned?: number };
+      const staffInfo = getStaffInfo();
+      const isAdmin = staffInfo?.admin === "1";
+      const myId = Number(staffInfo?.staffid ?? 0);
+      console.log('[Pusher] new-lead assigned:', d.assigned, 'myId:', myId, 'isAdmin:', isAdmin);
+      // Only notify if admin OR lead is assigned to current user OR unassigned (assigned=0)
+      if (!isAdmin && d.assigned && d.assigned !== myId) {
+        console.log('[Pusher] filtered — not for this user');
+        return;
+      }
       const label = d.name || d.email || "Unknown";
       showNotification(`New lead: ${label}`, "info");
     });
@@ -38,8 +47,8 @@ function AppContent() {
           type?: string;
           lead_id?: number;
         };
-        if (notifData?.type === "new_lead") {
-          router.push("/leads-list");
+        if (notifData?.type === "new_lead" && notifData.lead_id) {
+          router.push({ pathname: "/lead-detail", params: { lead_id: String(notifData.lead_id) } });
         }
       }
     );

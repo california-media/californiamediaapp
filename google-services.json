@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "627576178271",
+    "project_id": "california-media-crm-773da",
+    "storage_bucket": "california-media-crm-773da.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:627576178271:android:779223625b5edf65b97dea",
+        "android_client_info": {
+          "package_name": "ae.californiamedia.crm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbgGZI-A-F5lle41ZetRjmGeMjDePYZQA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

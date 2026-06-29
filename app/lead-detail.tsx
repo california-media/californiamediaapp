@@ -192,7 +192,19 @@ const spinnerStyles = StyleSheet.create({
 export default function LeadDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [lead, setLead] = useState<Lead>(JSON.parse(params.lead as string));
+  const [lead, setLead] = useState<Lead | null>(
+    params.lead ? JSON.parse(params.lead as string) : null
+  );
+  const [loadingLead, setLoadingLead] = useState(!params.lead && !!params.lead_id);
+
+  useEffect(() => {
+    if (!params.lead && params.lead_id) {
+      fetchLeadById(String(params.lead_id)).then((fetched) => {
+        if (fetched) setLead(fetched);
+        setLoadingLead(false);
+      });
+    }
+  }, []);
 
   const [activeTab, setActiveTab] = useState<Tab>('details');
 
@@ -536,6 +548,14 @@ export default function LeadDetailScreen() {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────────
+
+  if (loadingLead || !lead) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#1e3a5f" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>

@@ -18,10 +18,7 @@ Notifications.setNotificationHandler({
 });
 
 export async function registerForPushNotificationsAsync(): Promise<void> {
-  if (!Device.isDevice) {
-    console.log('[Push] Physical device required');
-    return;
-  }
+  console.log('[Push] START isDevice:', Device.isDevice, 'platform:', Platform.OS);
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
