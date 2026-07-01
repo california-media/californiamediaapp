@@ -133,6 +133,11 @@ export default function HomeScreen() {
     { label: "Calendar", icon: "calendar" as const, color: "#6366f1", bg: "#eef2ff", route: "/calendar" },
     ...(isAdmin ? [{ label: "Renewals", icon: "reload-circle" as const, color: "#10b981", bg: "#f0fdf4", route: "/renewals-list" }] : []),
     ...(isAdmin ? [{ label: "Timesheet", icon: "time" as const, color: "#0ea5e9", bg: "#f0f9ff", route: "/timesheet" }] : []),
+    ...(isAdmin ? [{ label: "Quotations", icon: "document-text" as const, color: "#6366f1", bg: "#eef2ff", route: "/quotations-list" }] : []),
+    ...(isAdmin ? [{ label: "Invoices", icon: "receipt" as const, color: "#10b981", bg: "#f0fdf4", route: "/invoices-list" }] : []),
+    ...(isAdmin ? [{ label: "Payments", icon: "card" as const, color: "#f59e0b", bg: "#fffbeb", route: "/payments-list" }] : []),
+    ...(isAdmin ? [{ label: "Projects", icon: "folder" as const, color: "#3b82f6", bg: "#eff6ff", route: "/projects-list" }] : []),
+    { label: "Tasks", icon: "checkmark-circle" as const, color: "#8b5cf6", bg: "#f5f3ff", route: "/tasks-list" },
   ];
 
   return (

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "CRM",
-    "slug": "california-media",
+    "slug": "california-media-crm",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
@@ -72,9 +72,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d771165e-0599-4af1-9f62-a87f97da1928"
+        "projectId": "a52636b7-0bc8-4df4-81f8-d857d562333b"
       }
     },
-    "owner": "asthajain22"
+    "owner": "californiamedias-team"
   }
 }

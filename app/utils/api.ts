@@ -1,5 +1,5 @@
 // app/utils/api.ts
-import { CustomersResponse, DbLeadsResponse, DealsResponse, LeadsResponse } from "../types";
+import { CrmProject, CrmTask, CustomersResponse, DbLeadsResponse, DealsResponse, Invoice, LeadsResponse, Payment, Proposal } from "../types";
 
 export interface LeadSource { id: number; name: string; }
 export interface LeadStatus { id: number; name: string; color: string; statusorder: number; }
@@ -8,6 +8,15 @@ export interface StaffMember { staffid: number; firstname: string; lastname: str
 export const fetchStaff = async (): Promise<StaffMember[]> => {
   try {
     const res = await fetch(`${getCrmApiUrl()}/assigned_agents`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const fetchCrmStaffs = async (): Promise<StaffMember[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/staffs`, { headers: buildAuthHeaders() });
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -52,7 +61,7 @@ export const bulkAssignLeads = async (staffId: string, leadIds: string[]): Promi
   } catch { return false; }
 };
 
-const buildAuthHeaders = () => ({
+export const buildAuthHeaders = () => ({
   Authorization: getAuthToken(),
   Cookie: getCrmCookie(),
   "X-User-Id": getUserId(),
@@ -710,4 +719,424 @@ export const deleteCalendarEvent = async (id: number): Promise<{ status: boolean
     const data = await res.json();
     return { status: !!data.status, message: data.message };
   } catch (e) { return { status: false, message: String(e) }; }
+};
+
+// ── Proposals (Quotations) ────────────────────────────────────────────────────
+
+export const fetchProposals = async (): Promise<Proposal[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/proposals`, { headers: buildAuthHeaders() });
+    if (res.status === 404) return [];
+    if (!res.ok) { console.error('fetchProposals', res.status); return []; }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (e) { console.error('fetchProposals', e); return []; }
+};
+
+export const fetchProposal = async (id: string): Promise<Proposal | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/proposals/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+};
+
+export interface CreateProposalItem {
+  description: string;
+  qty: string;
+  rate: string;
+  unit?: string;
+  long_description?: string;
+}
+
+export interface Currency {
+  id: string;
+  name: string;
+  symbol: string;
+  isdefault: string;
+}
+
+export const fetchCurrencies = async (): Promise<Currency[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/currencies`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export interface CrmItem {
+  id: string;
+  description: string;
+  long_description: string;
+  rate: string;
+  unit: string;
+  tax?: string;
+  tax2?: string;
+}
+
+export const fetchItems = async (search?: string): Promise<CrmItem[]> => {
+  try {
+    const url = search?.trim()
+      ? `${getCrmApiUrl()}/items?search=${encodeURIComponent(search)}`
+      : `${getCrmApiUrl()}/items`;
+    const res = await fetch(url, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const createProposal = async (data: {
+  subject: string;
+  rel_type: string;
+  rel_id: string;
+  proposal_to: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  date: string;
+  open_till?: string;
+  currency: string;
+  status: string;
+  subtotal: string;
+  total: string;
+  discount_percent?: string;
+  discount_total?: string;
+  discount_type?: string;
+  adjustment?: string;
+  items: CreateProposalItem[];
+}): Promise<{ status: boolean; message: string; id?: number }> => {
+  try {
+    const body = new URLSearchParams();
+    const { items, ...fields } = data;
+    Object.entries(fields).forEach(([k, v]) => { if (v !== undefined && v !== null) body.append(k, v); });
+    items.forEach((item, i) => {
+      body.append(`newitems[${i}][description]`, item.description);
+      body.append(`newitems[${i}][qty]`, item.qty || '1');
+      body.append(`newitems[${i}][rate]`, item.rate || '0');
+      body.append(`newitems[${i}][unit]`, item.unit || '');
+      body.append(`newitems[${i}][long_description]`, item.long_description || '');
+    });
+    const res = await fetch(`${getCrmApiUrl()}/proposals`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: body.toString(),
+    });
+    const result = await res.json();
+    return { status: !!result.status, message: result.message || '', id: result.id };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export interface PaymentMode {
+  id: string;
+  name: string;
+  selected_by_default?: string;
+  active?: string;
+}
+
+export const fetchPaymentModes = async (): Promise<PaymentMode[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/common/payment_mode`, { headers: buildAuthHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const recordPayment = async (data: {
+  invoiceid: string;
+  amount: string;
+  paymentmode: string;
+  date: string;
+  transactionid?: string;
+  note?: string;
+}): Promise<{ status: boolean; message: string }> => {
+  try {
+    const body = new URLSearchParams();
+    Object.entries(data).forEach(([k, v]) => { if (v !== undefined && v !== '') body.append(k, v); });
+    const res = await fetch(`${getCrmApiUrl()}/payments`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: body.toString(),
+    });
+    const text = await res.text();
+    let result: any = {};
+    try { result = JSON.parse(text); } catch { return { status: false, message: `Server error: ${text.slice(0, 200)}` }; }
+    const msg = result.message || result.error || '';
+    return { status: !!result.status, message: msg };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const fetchInvoiceInit = async (): Promise<{ next_number: string; prefix: string }> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/common/invoice_init`, { headers: buildAuthHeaders() });
+    if (!res.ok) return { next_number: '1', prefix: 'INV-' };
+    const data = await res.json();
+    return { next_number: data.next_number || '1', prefix: data.prefix || 'INV-' };
+  } catch { return { next_number: '1', prefix: 'INV-' }; }
+};
+
+export interface CreateInvoiceItem {
+  description: string;
+  long_description?: string;
+  qty: string;
+  rate: string;
+  unit?: string;
+  taxname?: string[];
+}
+
+export const createInvoice = async (data: {
+  clientid: string;
+  number: string;
+  date: string;
+  duedate?: string;
+  currency: string;
+  billing_street: string;
+  billing_city?: string;
+  billing_state?: string;
+  billing_zip?: string;
+  billing_country?: string;
+  subtotal: string;
+  total: string;
+  discount_percent?: string;
+  discount_total?: string;
+  discount_type?: string;
+  adjustment?: string;
+  allowed_payment_modes: string[];
+  items: CreateInvoiceItem[];
+}): Promise<{ status: boolean; message: string; id?: number }> => {
+  try {
+    const body = new URLSearchParams();
+    const { items, allowed_payment_modes, ...fields } = data;
+    Object.entries(fields).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') body.append(k, v); });
+    allowed_payment_modes.forEach(m => body.append('allowed_payment_modes[]', m));
+    items.forEach((item, i) => {
+      body.append(`newitems[${i}][description]`, item.description);
+      body.append(`newitems[${i}][qty]`, item.qty || '1');
+      body.append(`newitems[${i}][rate]`, item.rate || '0');
+      body.append(`newitems[${i}][unit]`, item.unit || '');
+      body.append(`newitems[${i}][long_description]`, item.long_description || '');
+      if (item.taxname) item.taxname.forEach(t => body.append(`newitems[${i}][taxname][]`, t));
+    });
+    const res = await fetch(`${getCrmApiUrl()}/invoices`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: body.toString(),
+    });
+    const result = await res.json();
+    return { status: !!result.status, message: result.message || JSON.stringify(result.error || ''), id: result.id };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+// ── Invoices ──────────────────────────────────────────────────────────────────
+
+export const fetchInvoices = async (): Promise<Invoice[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/invoices`, { headers: buildAuthHeaders() });
+    if (res.status === 404) return [];
+    if (!res.ok) { console.error('fetchInvoices', res.status); return []; }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (e) { console.error('fetchInvoices', e); return []; }
+};
+
+export const fetchInvoice = async (id: string): Promise<Invoice | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/invoices/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+};
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+
+export const fetchPayments = async (): Promise<Payment[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/payments`, { headers: buildAuthHeaders() });
+    if (res.status === 404) return [];
+    if (!res.ok) { console.error('fetchPayments', res.status); return []; }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (e) { console.error('fetchPayments', e); return []; }
+};
+
+export const fetchPayment = async (id: string): Promise<Payment | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/payments/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+};
+
+// ── CRM Projects ──────────────────────────────────────────────────────────────
+
+export const fetchCrmProjects = async (): Promise<CrmProject[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/projects`, { headers: buildAuthHeaders() });
+    if (res.status === 404) return [];
+    if (!res.ok) { console.error('fetchCrmProjects', res.status); return []; }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (e) { console.error('fetchCrmProjects', e); return []; }
+};
+
+export const fetchCrmProject = async (id: string | number): Promise<CrmProject | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/projects/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.status === false ? null : data;
+  } catch { return null; }
+};
+
+export const createCrmProject = async (data: {
+  name: string;
+  clientid: string;
+  billing_type: string;
+  start_date: string;
+  status: string;
+  deadline?: string;
+  description?: string;
+  project_cost?: string;
+  estimated_hours?: string;
+  project_rate_per_hour?: string;
+  progress?: string;
+  progress_from_tasks?: string;
+  project_members?: string[];
+}): Promise<{ status: boolean; message: string }> => {
+  try {
+    const body = new URLSearchParams();
+    const { project_members, ...fields } = data;
+    Object.entries(fields).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') body.append(k, v); });
+    if (project_members && project_members.length > 0) {
+      project_members.forEach(m => body.append('project_members[]', m));
+    }
+    const res = await fetch(`${getCrmApiUrl()}/projects`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: body.toString(),
+    });
+    const result = await res.json();
+    return { status: !!result.status, message: result.message || JSON.stringify(result.error || '') };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const updateCrmProject = async (id: string | number, data: {
+  name?: string;
+  billing_type?: string;
+  start_date?: string;
+  status?: string;
+  deadline?: string;
+  description?: string;
+  project_cost?: string;
+  estimated_hours?: string;
+  project_rate_per_hour?: string;
+  progress?: string;
+  project_members?: string[];
+}): Promise<{ status: boolean; message: string }> => {
+  try {
+    const payload: Record<string, any> = {};
+    Object.entries(data).forEach(([k, v]) => { if (v !== undefined && v !== null) payload[k] = v; });
+    const res = await fetch(`${getCrmApiUrl()}/projects/${id}`, {
+      method: 'PUT',
+      headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json();
+    return { status: !!result.status, message: result.message || JSON.stringify(result.error || '') };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+// ── CRM Tasks ─────────────────────────────────────────────────────────────────
+
+export const fetchTasks = async (): Promise<CrmTask[]> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/tasks`, { headers: buildAuthHeaders() });
+    if (res.status === 404) return [];
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+export const fetchTask = async (id: string | number): Promise<CrmTask | null> => {
+  try {
+    const res = await fetch(`${getCrmApiUrl()}/tasks/${id}`, { headers: buildAuthHeaders() });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.status === false ? null : data;
+  } catch { return null; }
+};
+
+export interface CreateTaskData {
+  name: string;
+  startdate: string;
+  duedate?: string;
+  priority?: string;
+  status?: string;
+  rel_type?: string;
+  rel_id?: string;
+  description?: string;
+  is_public?: string;
+  billable?: string;
+  hourly_rate?: string;
+  assigned?: string[];
+}
+
+export const updateTask = async (id: string | number, data: Partial<CreateTaskData>): Promise<{ status: boolean; message: string }> => {
+  try {
+    const { assigned, ...fields } = data;
+    const payload: Record<string, any> = {};
+    Object.entries(fields).forEach(([k, v]) => { if (v !== undefined && v !== null) payload[k] = v; });
+    if (assigned) payload['assigned'] = assigned;
+    const res = await fetch(`${getCrmApiUrl()}/tasks/${id}`, {
+      method: 'PUT',
+      headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json();
+    return { status: !!result.status, message: result.message || JSON.stringify(result.error || '') };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const createTask = async (data: CreateTaskData): Promise<{ status: boolean; message: string; id?: number }> => {
+  try {
+    const body = new URLSearchParams();
+    const { assigned, ...fields } = data;
+    Object.entries(fields).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') body.append(k, v); });
+    if (assigned && assigned.length > 0) {
+      assigned.forEach(s => body.append('assigned[]', s));
+    }
+    const res = await fetch(`${getCrmApiUrl()}/tasks`, {
+      method: 'POST',
+      headers: buildFormHeaders(),
+      body: body.toString(),
+    });
+    const result = await res.json();
+    return { status: !!result.status, message: result.message || JSON.stringify(result.error || ''), id: result.id };
+  } catch (e) { return { status: false, message: String(e) }; }
+};
+
+export const convertProposal = async (
+  id: string | number,
+  type: "invoice" | "estimate",
+  params: { date?: string; duedate?: string; expirydate?: string } = {}
+): Promise<{ status: boolean; message: string; invoice_id?: number; estimate_id?: number }> => {
+  try {
+    const bodyParams: Record<string, string> = { type };
+    if (params.date) bodyParams.date = params.date;
+    if (params.duedate) bodyParams.duedate = params.duedate;
+    if (params.expirydate) bodyParams.expirydate = params.expirydate;
+    const body = new URLSearchParams(bodyParams);
+    const res = await fetch(`${getCrmApiUrl()}/proposalconvert/${id}`, {
+      method: "POST",
+      headers: { ...buildAuthHeaders(), "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    return { status: false, message: "Network error" };
+  }
 };

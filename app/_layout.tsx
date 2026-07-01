@@ -88,6 +88,20 @@ function AppContent() {
       <Stack.Screen name="renewal-detail" options={{ headerShown: false, title: "Renewal Detail" }} />
       <Stack.Screen name="add-renewal" options={{ headerShown: false, title: "Add Renewal" }} />
       <Stack.Screen name="timesheet" options={{ headerShown: false, title: "Timesheet" }} />
+      <Stack.Screen name="quotations-list" options={{ headerShown: false, title: "Quotations" }} />
+      <Stack.Screen name="create-quotation" options={{ headerShown: false, title: "New Quotation" }} />
+      <Stack.Screen name="quotation-detail" options={{ headerShown: false, title: "Quotation Detail" }} />
+      <Stack.Screen name="invoices-list" options={{ headerShown: false, title: "Invoices" }} />
+      <Stack.Screen name="invoice-detail" options={{ headerShown: false, title: "Invoice Detail" }} />
+      <Stack.Screen name="payments-list" options={{ headerShown: false, title: "Payments" }} />
+      <Stack.Screen name="payment-detail" options={{ headerShown: false, title: "Payment Detail" }} />
+      <Stack.Screen name="create-invoice" options={{ headerShown: false, title: "New Invoice" }} />
+      <Stack.Screen name="create-project" options={{ headerShown: false, title: "New Project" }} />
+      <Stack.Screen name="edit-project" options={{ headerShown: false, title: "Edit Project" }} />
+      <Stack.Screen name="tasks-list" options={{ headerShown: false, title: "Tasks" }} />
+      <Stack.Screen name="task-detail" options={{ headerShown: false, title: "Task Details" }} />
+      <Stack.Screen name="create-task" options={{ headerShown: false, title: "New Task" }} />
+      <Stack.Screen name="edit-task" options={{ headerShown: false, title: "Edit Task" }} />
     </Stack>
   );
 }

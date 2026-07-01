@@ -112,6 +112,7 @@ export interface DbLeadsResponse {
 }
 
 export interface Customer {
+  id?: string;
   userid: string;
   company: string;
   phonenumber: string | null;
@@ -410,4 +411,143 @@ export interface PropertyDetails {
   agent_name: string;
   landlord_name: string;
   attachments: any[];
+}
+
+// ── Proposals (Quotations) ────────────────────────────────────────────────────
+export interface ProposalItem {
+  id: string;
+  rel_id: string;
+  rel_type: string;
+  description: string;
+  long_description: string;
+  qty: string;
+  rate: string;
+  unit: string;
+  item_order: string;
+}
+
+export interface Proposal {
+  id: string;
+  subject: string;
+  addedfrom: string;
+  datecreated: string;
+  total: string;
+  subtotal: string;
+  total_tax: string;
+  adjustment: string;
+  discount_percent: string;
+  discount_total: string;
+  discount_type: string;
+  currency: string;
+  currency_name: string;
+  open_till: string;
+  date: string;
+  rel_id: string;
+  rel_type: string;
+  assigned: string;
+  hash: string;
+  proposal_to: string;
+  address: string;
+  email: string;
+  phone: string;
+  status: string;
+  estimate_id: string | null;
+  invoice_id: string | null;
+  items?: ProposalItem[];
+}
+
+// ── Invoices ──────────────────────────────────────────────────────────────────
+export interface InvoiceItem {
+  id: string;
+  rel_id: string;
+  rel_type: string;
+  description: string;
+  long_description: string;
+  qty: string;
+  rate: string;
+  unit: string;
+  item_order: string;
+}
+
+export interface Invoice {
+  id: string;
+  sent: string;
+  clientid: string;
+  deleted_customer_name: string | null;
+  number: string;
+  prefix: string;
+  datecreated: string;
+  date: string;
+  duedate: string;
+  currency: string;
+  subtotal: string;
+  total_tax: string;
+  total: string;
+  adjustment: string;
+  discount_percent: string;
+  discount_total: string;
+  discount_type: string;
+  status: string;
+  clientnote: string | null;
+  adminnote: string | null;
+  currency_name?: string;
+  symbol?: string;
+  items?: InvoiceItem[];
+  payments?: Payment[];
+}
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+export interface Payment {
+  id: string;
+  invoiceid: string;
+  amount: string;
+  paymentmode: string;
+  paymentmethod: string;
+  date: string;
+  daterecorded: string;
+  note: string;
+  transactionid: string;
+  name: string;
+}
+
+// ── CRM Projects ──────────────────────────────────────────────────────────────
+export interface CrmProject {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  clientid: string;
+  billing_type: string;
+  start_date: string | null;
+  deadline: string | null;
+  project_created: string;
+  date_finished: string | null;
+  progress: string;
+  progress_from_tasks: string;
+  project_cost: string;
+  project_rate_per_hour: string;
+  estimated_hours: string;
+  addedfrom: string;
+  rel_type: string;
+  [key: string]: any;
+}
+
+export interface CrmTask {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  startdate: string | null;
+  duedate: string | null;
+  datefinished: string | null;
+  addedfrom: string;
+  rel_type: string;
+  rel_id: string;
+  is_public: string;
+  billable: string;
+  hourly_rate: string;
+  dateadded: string;
+  assigned?: Array<{ staffid: string; firstname: string; lastname: string }>;
+  [key: string]: any;
 }
